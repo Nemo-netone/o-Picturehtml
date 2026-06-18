@@ -1,0 +1,21 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="48"
+  height="48"
+  viewBox="0 0 48 48"
+  role="img"
+  aria-label="SimulSpeak"
+>
+  <rect width="48" height="48" fill="#f7f8f4" />
+  <path
+    fill="#e7ebef"
+    d="M0 0h2v48H0zm16 0h2v48h-2zm16 0h2v48h-2zM0 0h48v2H0zm0 16h48v2H0zm0 16h48v2H0z"
+  />
+  <path fill="#15191d" d="M6 6h34v4h4v32h-4v4H6v-4H2V10h4z" />
+  <path fill="#ffffff" d="M6 10h34v32H6z" />
+  <path
+    fill="#2563eb"
+    d="M12 14h10v4H12zm0 4h4v4h10v4H12zm10 12h4v4H12v-4h10zm6-16h10v4H28zm0 4h4v4h10v4H28zm10 12h4v4H28v-4h10z"
+  />
+  <path fill="#15191d" d="M10 38h28v2H10z" />
+</svg>

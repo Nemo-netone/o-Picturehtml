@@ -1,0 +1,92 @@
+{
+  "description": "标准回放序列（一段英文一句，覆盖完整字幕状态机）。逐字遵循 docs/05-interfaces.md A 节；delayMs 为相对上一帧的发送间隔，供 mock 服务端按时序回放，也是 state/subtitles 渲染规则单测与 M3 手动验收的唯一基准。",
+  "callId": "call-1",
+  "userId": "user-1",
+  "utteranceId": "call-1-utt-7",
+  "frames": [
+    {
+      "delayMs": 0,
+      "frame": {
+        "type": "asr_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "text": "We use",
+        "isFinal": false,
+        "confidence": 0.6,
+        "language": "en",
+        "metadata": { "utteranceId": "call-1-utt-7" }
+      }
+    },
+    {
+      "delayMs": 300,
+      "frame": {
+        "type": "asr_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "text": "We use a transformer",
+        "isFinal": false,
+        "confidence": 0.78,
+        "language": "en",
+        "metadata": { "utteranceId": "call-1-utt-7" }
+      }
+    },
+    {
+      "delayMs": 300,
+      "frame": {
+        "type": "translation_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "utteranceId": "call-1-utt-7",
+        "sourceText": "We use a transformer",
+        "text": "我们使用一个变压器",
+        "isFinal": false,
+        "engine": "tmt",
+        "revised": false,
+        "language": "zh"
+      }
+    },
+    {
+      "delayMs": 250,
+      "frame": {
+        "type": "asr_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "text": "We use a transformer architecture.",
+        "isFinal": true,
+        "confidence": 0.95,
+        "language": "en",
+        "metadata": { "utteranceId": "call-1-utt-7" }
+      }
+    },
+    {
+      "delayMs": 120,
+      "frame": {
+        "type": "translation_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "utteranceId": "call-1-utt-7",
+        "sourceText": "We use a transformer architecture.",
+        "text": "我们使用变压器架构。",
+        "isFinal": false,
+        "engine": "tmt",
+        "revised": false,
+        "language": "zh"
+      }
+    },
+    {
+      "delayMs": 600,
+      "frame": {
+        "type": "translation_result",
+        "callId": "call-1",
+        "userId": "user-1",
+        "utteranceId": "call-1-utt-7",
+        "sourceText": "We use a transformer architecture.",
+        "text": "我们采用一种 Transformer 架构。",
+        "isFinal": true,
+        "engine": "deepseek-flash",
+        "revised": true,
+        "language": "zh"
+      }
+    }
+  ]
+}

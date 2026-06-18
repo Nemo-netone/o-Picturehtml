@@ -1,0 +1,64 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Local SQLite databases
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Coverage
+*.out
+coverage/
+
+# Proto generated
+*.pb.go
+
+# Build artifacts
+/tmp/
+node_modules/
+dist/
+frontend/.vite/
+web/webrtc-probe/node_modules/
+web/webrtc-probe/dist/
+
+# Claude local state
+.claude/
+
+# Local third-party runtime binaries
+third_party/onnxruntime*/
+third_party/silero-vad*/

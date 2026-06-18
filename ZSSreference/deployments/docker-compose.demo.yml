@@ -1,0 +1,193 @@
+# SimulSpeak 一键 Demo 栈：
+#   docker compose -f deployments/docker-compose.demo.yml up --build
+#
+# 默认使用 mock ASR/TMT/TTS/LLM，便于无外部密钥直接启动。
+# 如需接真实 provider，可在 shell 中导出 SIMULSPEAK_* 变量后再执行 compose。
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.13
+    container_name: simulspeak-etcd
+    command:
+      - etcd
+      - --name=simulspeak-etcd
+      - --data-dir=/etcd-data
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd:2380
+      - --initial-cluster=simulspeak-etcd=http://etcd:2380
+      - --initial-cluster-state=new
+    ports:
+      - "${ETCD_CLIENT_PORT:-2379}:2379"
+    volumes:
+      - etcd-data:/etcd-data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "etcdctl",
+          "--endpoints=http://127.0.0.1:2379",
+          "endpoint",
+          "health",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  api-server:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.go-service
+      args:
+        SERVICE: api-server
+    image: simulspeak/api-server:local
+    container_name: simulspeak-api-server
+    env_file:
+      - ../.env.example
+    environment:
+      SIMULSPEAK_SERVICE_NAME: api-server
+      SIMULSPEAK_HTTP_ADDRESS: 0.0.0.0:8080
+      SIMULSPEAK_GRPC_ADDRESS: 0.0.0.0:9090
+      SIMULSPEAK_ETCD_MODE: etcd
+      SIMULSPEAK_ETCD_ENDPOINTS: http://etcd:2379
+      SIMULSPEAK_SQLITE_DSN: file:/app/data/simulspeak.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)
+      SIMULSPEAK_ASR_PROVIDER: ${SIMULSPEAK_ASR_PROVIDER:-mock}
+      SIMULSPEAK_TMT_PROVIDER: ${SIMULSPEAK_TMT_PROVIDER:-mock}
+      SIMULSPEAK_TTS_PROVIDER: ${SIMULSPEAK_TTS_PROVIDER:-mock}
+      SIMULSPEAK_LLM_PROVIDER: ${SIMULSPEAK_LLM_PROVIDER:-mock}
+      SIMULSPEAK_VAD_PROVIDER: ${SIMULSPEAK_VAD_PROVIDER:-simple}
+      SIMULSPEAK_LLM_ENDPOINT: ${SIMULSPEAK_LLM_ENDPOINT:-}
+      SIMULSPEAK_LLM_API_KEY: ${SIMULSPEAK_LLM_API_KEY:-}
+      SIMULSPEAK_LLM_MODEL: ${SIMULSPEAK_LLM_MODEL:-}
+      SIMULSPEAK_RECORDING_DIR: /app/data/recordings
+    ports:
+      - "${API_SERVER_PORT:-8080}:8080"
+      - "${API_GRPC_PORT:-9090}:9090"
+    volumes:
+      - sqlite-data:/app/data
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  pbx-node:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.go-service
+      args:
+        SERVICE: pbx-node
+    image: simulspeak/pbx-node:local
+    container_name: simulspeak-pbx-node
+    env_file:
+      - ../.env.example
+    environment:
+      SIMULSPEAK_SERVICE_NAME: pbx-node
+      SIMULSPEAK_ETCD_MODE: etcd
+      SIMULSPEAK_ETCD_ENDPOINTS: http://etcd:2379
+      SIMULSPEAK_PBX_CONTROL_ADDRESS: 0.0.0.0:8081
+      SIMULSPEAK_PBX_NODE_WS_URL: ws://pbx-node:8081/pbx/ws
+      SIMULSPEAK_NODE_ID: ${SIMULSPEAK_NODE_ID:-media-demo-1}
+      SIMULSPEAK_NODE_ADVERTISE: ws://pbx-node:8081/pbx/ws
+      SIMULSPEAK_NODE_ZONE: ${SIMULSPEAK_NODE_ZONE:-default}
+      SIMULSPEAK_NODE_MAX_CALLS: ${SIMULSPEAK_NODE_MAX_CALLS:-100}
+      SIMULSPEAK_NODE_WEIGHT: ${SIMULSPEAK_NODE_WEIGHT:-1}
+      SIMULSPEAK_PBX_WEBRTC_UDP_PORT_MIN: 20000
+      SIMULSPEAK_PBX_WEBRTC_UDP_PORT_MAX: 20100
+      SIMULSPEAK_VAD_PROVIDER: ${SIMULSPEAK_VAD_PROVIDER:-simple}
+      SIMULSPEAK_ASR_PROVIDER: ${SIMULSPEAK_ASR_PROVIDER:-mock}
+      SIMULSPEAK_TMT_PROVIDER: ${SIMULSPEAK_TMT_PROVIDER:-mock}
+      SIMULSPEAK_TTS_PROVIDER: ${SIMULSPEAK_TTS_PROVIDER:-mock}
+      SIMULSPEAK_LLM_PROVIDER: ${SIMULSPEAK_LLM_PROVIDER:-mock}
+      SIMULSPEAK_RECORDING_DIR: /app/data/recordings
+    ports:
+      - "${PBX_CONTROL_PORT:-8081}:8081"
+      - "${PBX_WEBRTC_UDP_PORT_MIN:-20000}-${PBX_WEBRTC_UDP_PORT_MAX:-20100}:20000-20100/udp"
+    volumes:
+      - recording-data:/app/data/recordings
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8081/pbx/health >/dev/null",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.go-service
+      args:
+        SERVICE: worker
+    image: simulspeak/worker:local
+    container_name: simulspeak-worker
+    env_file:
+      - ../.env.example
+    environment:
+      SIMULSPEAK_SERVICE_NAME: worker
+      SIMULSPEAK_ETCD_MODE: etcd
+      SIMULSPEAK_ETCD_ENDPOINTS: http://etcd:2379
+      SIMULSPEAK_SQLITE_DSN: file:/app/data/simulspeak.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)
+      SIMULSPEAK_WORKER_ID: ${SIMULSPEAK_WORKER_ID:-vocabulary-worker}
+      SIMULSPEAK_WORKER_NODE_ID: ${SIMULSPEAK_WORKER_NODE_ID:-worker-demo-1}
+      SIMULSPEAK_WORKER_CONCURRENCY: ${SIMULSPEAK_WORKER_CONCURRENCY:-2}
+      SIMULSPEAK_WORKER_POLL_INTERVAL: ${SIMULSPEAK_WORKER_POLL_INTERVAL:-1s}
+      SIMULSPEAK_VOCAB_LLM_TIMEOUT: ${SIMULSPEAK_VOCAB_LLM_TIMEOUT:-30s}
+      SIMULSPEAK_VOCAB_TASK_LOCK_TIMEOUT: ${SIMULSPEAK_VOCAB_TASK_LOCK_TIMEOUT:-5m}
+      SIMULSPEAK_VOCAB_TASK_MAX_ATTEMPTS: ${SIMULSPEAK_VOCAB_TASK_MAX_ATTEMPTS:-3}
+      SIMULSPEAK_LLM_PROVIDER: ${SIMULSPEAK_LLM_PROVIDER:-mock}
+      SIMULSPEAK_LLM_ENDPOINT: ${SIMULSPEAK_LLM_ENDPOINT:-}
+      SIMULSPEAK_LLM_API_KEY: ${SIMULSPEAK_LLM_API_KEY:-}
+      SIMULSPEAK_LLM_MODEL: ${SIMULSPEAK_LLM_MODEL:-}
+      SIMULSPEAK_VAD_PROVIDER: ${SIMULSPEAK_VAD_PROVIDER:-simple}
+    volumes:
+      - sqlite-data:/app/data
+    depends_on:
+      etcd:
+        condition: service_healthy
+      api-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.frontend
+      args:
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:5173/ws}
+        VITE_API_HTTP_URL: ${VITE_API_HTTP_URL:-}
+        VITE_TENANT_ID: ${VITE_TENANT_ID:-demo-tenant}
+        VITE_CLIENT_ID: ${VITE_CLIENT_ID:-local-client}
+    image: simulspeak/frontend:local
+    container_name: simulspeak-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  etcd-data: {}
+  sqlite-data: {}
+  recording-data: {}

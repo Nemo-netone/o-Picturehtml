@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimulSpeak1 — AI 实时同声传译助手</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --card: #111827;
+    --border: #1e293b;
+    --text: #cbd5e1;
+    --text-dim: #94a3b8;
+    --accent: #3b82f6;
+    --accent2: #8b5cf6;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --pink: #ec4899;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    font-family: -apple-system, "Noto Sans SC", "PingFang SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  /* ---- nav ---- */
+  nav {
+    position: fixed; top:0; left:0; right:0; z-index:100;
+    background: rgba(10,14,23,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 56px;
+    display: flex; align-items: center; gap: 32px;
+    font-size: 14px;
+  }
+  nav .logo { font-weight: 700; font-size: 18px; color: #fff; margin-right: auto; }
+  nav a { color: var(--text-dim); text-decoration: none; transition: color .2s; }
+  nav a:hover { color: #fff; }
+
+  /* ---- sections ---- */
+  section { padding: 80px 24px; max-width: 1000px; margin: 0 auto; }
+  section.hero { padding-top: 136px; text-align: center; }
+
+  h1 { font-size: 48px; font-weight: 800; color: #fff; letter-spacing: -1px; }
+  h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  h2 { font-size: 30px; font-weight: 700; color: #fff; margin-bottom: 48px; display: flex; align-items: center; gap: 12px; }
+  h2::before { content:''; display:inline-block; width:4px; height:28px; background:linear-gradient(180deg,var(--accent),var(--accent2)); border-radius:2px; }
+  h3 { font-size: 20px; font-weight: 600; color: #e2e8f0; margin: 32px 0 12px; }
+  p { color: var(--text-dim); margin-bottom: 12px; }
+
+  /* ---- hero ---- */
+  .hero .badge {
+    display: inline-block; padding: 4px 16px;
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: 13px; color: var(--text-dim); margin-bottom: 24px;
+  }
+  .hero .kpis { display: flex; justify-content: center; gap: 48px; margin-top: 40px; }
+  .hero .kpi { text-align: center; }
+  .hero .kpi .num { font-size: 36px; font-weight: 800; color: #fff; }
+  .hero .kpi .label { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+  /* ---- cards ---- */
+  .card-grid { display: grid; gap: 16px; }
+  .card-grid.cols2 { grid-template-columns: 1fr 1fr; }
+  .card-grid.cols4 { grid-template-columns: repeat(4,1fr); }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    transition: border-color .3s;
+  }
+  .card:hover { border-color: #334155; }
+  .card .icon { font-size: 28px; margin-bottom: 12px; }
+  .card h4 { font-size: 16px; font-weight: 600; color: #f1f5f9; margin-bottom: 8px; }
+  .card p { font-size: 14px; color: var(--text-dim); margin: 0; }
+  .card.accent { border-left: 3px solid var(--accent); }
+  .card.pink   { border-left: 3px solid var(--pink); }
+  .card.green  { border-left: 3px solid var(--green); }
+  .card.orange { border-left: 3px solid var(--orange); }
+
+  /* ---- rule bar ---- */
+  .rule-bar {
+    background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 28px; text-align: center; margin: 40px 0;
+    font-size: 17px; font-weight: 600; color: #e2e8f0;
+  }
+
+  /* ---- flow diagram ---- */
+  .diagram-wrapper {
+    margin: 32px 0;
+    border-radius: 12px; border: 1px solid var(--border);
+    background: #f8fafc; overflow: hidden;
+  }
+  .diagram-wrapper .diagram-caption {
+    padding: 12px 20px; font-size: 13px; font-weight: 600;
+    color: #475569; background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .diagram-wrapper img {
+    display: block; width: 100%; padding: 20px;
+    background: #fff; cursor: zoom-in;
+  }
+  .diagram-wrapper img.padded { padding: 32px 48px; }
+
+  /* ---- lightbox ---- */
+  .lightbox {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,0.9); cursor: zoom-out;
+    align-items: center; justify-content: center;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img {
+    max-width: 94vw; max-height: 94vh;
+    border-radius: 8px; background: #fff; padding: 16px;
+  }
+  .lightbox .hint {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    color: #94a3b8; font-size: 13px;
+  }
+
+  /* ---- state machine ---- */
+  .state-machine {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; flex-wrap: wrap; margin: 32px 0; font-size: 14px;
+  }
+  .state {
+    padding: 14px 22px; border-radius: 10px; text-align: center;
+    border: 1px solid var(--border); min-width: 110px;
+  }
+  .state .name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .state .desc { font-size: 12px; color: var(--text-dim); }
+  .state.empty  { background: #1e293b; }
+  .state.pending { background: rgba(148,163,184,0.1); border-color: #64748b; }
+  .state.pending .name { color: #94a3b8; }
+  .state.locked  { background: rgba(255,255,255,0.05); }
+  .state.locked .name { color: #fff; }
+  .state.revised { background: rgba(59,130,246,0.1); border-color: var(--accent); }
+  .state.revised .name { color: var(--accent); }
+  .arrow {
+    font-size: 22px; color: var(--text-dim); flex-shrink: 0;
+  }
+  .arrow-label {
+    font-size: 11px; color: var(--text-dim); text-align: center;
+    margin-top: 2px; max-width: 70px;
+  }
+
+  /* ---- pipeline ---- */
+  .pipeline {
+    display: flex; gap: 0; margin: 32px 0; border-radius: 12px;
+    overflow: hidden; border: 1px solid var(--border);
+  }
+  .pipeline .stage {
+    flex:1; padding: 20px 16px; text-align: center;
+    font-size: 13px; position: relative;
+  }
+  .pipeline .stage + .stage { border-left: 1px solid var(--border); }
+  .pipeline .stage.fast  { background: rgba(34,197,94,0.06); }
+  .pipeline .stage.smart { background: rgba(59,130,246,0.08); }
+  .pipeline .stage .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .pipeline .stage.fast .label  { color: var(--green); }
+  .pipeline .stage.smart .label { color: var(--accent); }
+  .pipeline .stage .title { font-weight: 700; font-size: 15px; color: #e2e8f0; margin-bottom: 4px; }
+  .pipeline .stage .latency { font-size: 22px; font-weight: 800; margin: 8px 0; }
+  .pipeline .stage .detail { color: var(--text-dim); font-size: 12px; }
+
+  .pipeline-divider {
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 0; color: var(--text-dim); font-size: 13px;
+  }
+
+  /* ---- degrade table ---- */
+  .degrade-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+  .degrade-table th, .degrade-table td {
+    padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .degrade-table th { color: var(--text-dim); font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  .degrade-table td:first-child { color: var(--red); font-weight: 500; }
+  .degrade-table td:last-child { color: var(--text); }
+
+  /* ---- summary ---- */
+  .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  .summary-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px 24px; text-align: center;
+  }
+  .summary-item .num { font-size: 42px; font-weight: 800; margin-bottom: 8px; }
+  .summary-item:nth-child(1) .num { color: var(--accent); }
+  .summary-item:nth-child(2) .num { color: var(--green); }
+  .summary-item:nth-child(3) .num { color: var(--accent2); }
+  .summary-item .title { font-weight: 600; color: #e2e8f0; margin-bottom: 8px; }
+  .summary-item .detail { font-size: 13px; color: var(--text-dim); }
+
+  /* ---- footer ---- */
+  footer {
+    text-align: center; padding: 40px 24px 80px;
+    color: var(--text-dim); font-size: 13px;
+    border-top: 1px solid var(--border); margin-top: 40px;
+  }
+
+  /* ---- highlight keyword ---- */
+  strong { color: #e2e8f0; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 768px) {
+    h1 { font-size: 32px; }
+    .card-grid.cols4 { grid-template-columns: 1fr 1fr; }
+    .card-grid.cols2 { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipeline .stage + .stage { border-left: none; border-top: 1px solid var(--border); }
+    .hero .kpis { gap: 24px; }
+    nav { gap: 16px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== nav ====== -->
+<nav>
+  <span class="logo">SimulSpeak1</span>
+  <a href="#arch">架构</a>
+  <a href="#flow">业务流程</a>
+  <a href="#state">状态机</a>
+  <a href="#pipeline">翻译链路</a>
+  <a href="#summary">总结</a>
+</nav>
+
+<!-- ====== hero ====== -->
+<section class="hero">
+  <div class="badge">AI 同声传译助手 · 参赛题目二</div>
+  <h1><span>SimulSpeak1</span></h1>
+  <p style="font-size:20px;margin-top:16px;">
+    播英文演讲 → 实时出<strong>双语字幕</strong> + <strong>中文配音</strong><br/>
+    每句话说完后 <strong>大模型自动纠正翻译错误</strong>，肉眼可见
+  </p>
+  <p style="color:var(--text-dim);">纯 Go 实现 · 全栈交付 · 3 天从零到可演示</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="num">33,274</div><div class="label">Go 代码行数</div></div>
+    <div class="kpi"><div class="num">9,605</div><div class="label">前端代码行数</div></div>
+    <div class="kpi"><div class="num">12</div><div class="label">设计文档</div></div>
+    <div class="kpi"><div class="num">3天</div><div class="label">开发周期</div></div>
+  </div>
+</section>
+
+<!-- ====== architecture ====== -->
+<section id="arch">
+  <h2>四层架构设计</h2>
+
+  <div class="card-grid cols4">
+    <div class="card accent">
+      <div class="icon">📡</div>
+      <h4>信令面 <code>api-server</code></h4>
+      <p>业务大脑：前端 WebSocket、会话管理、节点调度、LLM 纠错编排</p>
+    </div>
+    <div class="card pink">
+      <div class="icon">🎙</div>
+      <h4>媒体面 <code>pbx-node</code></h4>
+      <p>媒体肌肉：WebRTC、Opus 解码、VAD 切句、ASR → TMT → TTS 流水线</p>
+    </div>
+    <div class="card green">
+      <div class="icon">🧠</div>
+      <h4>AI 面</h4>
+      <p>可插拔引擎：VAD / ASR / TMT / TTS / LLM 5 类 provider，环境变量切换</p>
+    </div>
+    <div class="card orange">
+      <div class="icon">🌐</div>
+      <h4>集群面</h4>
+      <p>横向扩展：etcd 注册/心跳/负载上报，最少负载 / 轮询路由</p>
+    </div>
+  </div>
+
+  <div class="rule-bar">
+    🧩 边界铁律：媒体面不持有业务状态，业务面不处理音频帧
+  </div>
+
+  <div class="diagram-wrapper">
+    <div class="diagram-caption">📐 项目架构图 —— 四层结构、组件关系、外部服务</div>
+    <img src="E:\architecture.png" alt="SimulSpeak1 项目架构图" onclick="openLightbox(this.src)" loading="lazy">
+  </div>
+</section>
+
+<!-- ====== business flow ====== -->
+<section id="flow">
+  <h2>端到端业务流程</h2>
+  <p>一句话的完整生命周期，四个阶段：</p>
+
+  <div class="diagram-wrapper">
+    <div class="diagram-caption">🔄 端到端业务流程图 —— 19 步时序：信令握手 → VAD 切句 → ASR → TMT 快翻 → LLM 纠错 → TTS 配音</div>
+    <img src="E:\business-flow.png" alt="SimulSpeak1 端到端业务流程图" onclick="openLightbox(this.src)" loading="lazy">
+  </div>
+
+  <div class="card-grid" style="margin-top:24px;">
+    <div class="card">
+      <h4>① 信令握手</h4>
+      <p>浏览器 → WebSocket → api-server → etcd 选节点 → <strong>SDP/ICE 转发</strong> → 浏览器与 PBX 直达 WebRTC</p>
+    </div>
+    <div class="card">
+      <h4>② VAD 切句 + 流式 ASR</h4>
+      <p>Opus → PCM16/16k → <strong>Silero ONNX 推理</strong>切句 → 开 ASR WebSocket → partial 实时回推（灰字）→ VAD 静音关句 → final 定稿（黑字）</p>
+    </div>
+    <div class="card">
+      <h4>③ 两段翻译（核心卖点）</h4>
+      <p>TMT 快翻 &lt; 500ms 秒出灰色草稿 → DeepSeek Flash 带上下文+术语表 polish → 跟草稿 diff → 不同则<strong>黑字+高亮修正</strong></p>
+    </div>
+    <div class="card">
+      <h4>④ TTS 配音</h4>
+      <p>api-server 发 <code>tts_command</code> → PBX 合成 → PCMU 编码 → 20ms 帧节拍下行播放，与字幕解耦</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====== state machine ====== -->
+<section id="state">
+  <h2>commit / revise 状态机</h2>
+  <p>每行字幕一个 <code>utteranceID</code>，只有三个终态，不可逆。</p>
+
+  <div class="state-machine">
+    <div class="state empty">
+      <div class="name" style="color:#64748b;">空</div>
+      <div class="desc">等待语音开始</div>
+    </div>
+
+    <div style="text-align:center;">
+      <div class="arrow">→</div>
+      <div class="arrow-label">partial 到达</div>
+    </div>
+
+    <div class="state pending">
+      <div class="name">pending</div>
+      <div class="desc">灰字草稿<br/>唯一可变阶段<br/>新 partial 就地刷新</div>
+    </div>
+
+    <div style="text-align:center;">
+      <div class="arrow">→</div>
+      <div class="arrow-label">ASR final<br/>+ TMT 快翻</div>
+    </div>
+
+    <div class="state locked">
+      <div class="name">locked</div>
+      <div class="desc">黑字锁定<br/>定稿永不跳变<br/>LLM = TMT</div>
+    </div>
+
+    <div style="text-align:center;">
+      <div class="arrow">→</div>
+      <div class="arrow-label">LLM ≠ TMT</div>
+    </div>
+
+    <div class="state revised">
+      <div class="name">revised</div>
+      <div class="desc">黑字 + 高亮闪动<br/>AI 修正过的译文<br/>终态</div>
+    </div>
+  </div>
+
+  <div class="rule-bar">
+    💡 典型纠错：TMT 将 "transformer architecture" 译成「变压器架构」<br/>
+    → DeepSeek 根据上下文纠为「Transformer 架构」→ 该行高亮闪动
+  </div>
+</section>
+
+<!-- ====== translation pipeline ====== -->
+<section id="pipeline">
+  <h2>翻译链路：快 + 准，双层设计</h2>
+  <p>用户永远先看到翻译，再看到修正。字幕流不中断。</p>
+
+  <div class="pipeline">
+    <div class="stage fast">
+      <div class="label">PBX 侧 · 快</div>
+      <div class="title">TMT 快翻</div>
+      <div class="latency">&lt; 500ms</div>
+      <div class="detail">灰色草稿<br/>可被覆盖<br/>失败 → 等 LLM 兜底</div>
+    </div>
+    <div class="stage" style="background:rgba(100,116,139,0.05);">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">前端</div>
+      <div class="title">灰字展示</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:8px;">用户先看到<br/>不用等</div>
+    </div>
+    <div class="stage smart">
+      <div class="label">api-server 侧 · 准</div>
+      <div class="title">DeepSeek Flash</div>
+      <div class="latency">&lt; 3s</div>
+      <div class="detail">上下文 + 术语表<br/>锁定永不改<br/>失败 → 锁 TMT 草稿</div>
+    </div>
+    <div class="stage" style="background:rgba(100,116,139,0.05);">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">前端</div>
+      <div class="title">黑字锁定</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:8px;">diff = 高亮<br/>diff = 不闪</div>
+    </div>
+  </div>
+
+  <h3>容错降级：字幕主链路永不中断</h3>
+  <table class="degrade-table">
+    <thead><tr><th>故障场景</th><th>降级策略</th></tr></thead>
+    <tbody>
+      <tr><td>TMT 快翻挂了</td><td>跳过草稿，直接等 LLM 纠错</td></tr>
+      <tr><td>LLM 纠错挂了</td><td>TMT 草稿升格为最终结果，锁定不纠错</td></tr>
+      <tr><td>两个都挂了</td><td>只显示英文原文，中文缺失记日志</td></tr>
+      <tr><td>TTS 配音挂了</td><td>仅影响声音，不影响字幕</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ====== summary ====== -->
+<section id="summary">
+  <h2>总结</h2>
+
+  <div class="summary-grid">
+    <div class="summary-item">
+      <div class="num">01</div>
+      <div class="title">架构清晰</div>
+      <div class="detail">四层解耦，信令/媒体/AI/集群各司其职<br/>纯 Go 实现，全栈交付</div>
+    </div>
+    <div class="summary-item">
+      <div class="num">02</div>
+      <div class="title">业务完整</div>
+      <div class="detail">19 步端到端数据流<br/>听→识→译→纠→说<br/>每个环节都有工程化设计</div>
+    </div>
+    <div class="summary-item">
+      <div class="num">03</div>
+      <div class="title">核心亮点</div>
+      <div class="detail">LLM 纠错"可视化"<br/>灰→黑→高亮<br/>亲眼看到 AI 修正自己</div>
+    </div>
+  </div>
+
+  <div class="rule-bar" style="margin-top:48px;">
+    33,000 行 Go + 9,600 行前端 · 3 天交付 · 独立完成
+  </div>
+</section>
+
+<footer>
+  SimulSpeak1 · AI 实时同声传译助手 · <a href="https://github.com/SATA260/SimulSpeak1" style="color:var(--accent);">GitHub</a>
+</footer>
+
+<!-- ====== lightbox ====== -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="放大查看">
+  <span class="hint">点击任意位置关闭</span>
+</div>
+
+<script>
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeLightbox();
+});
+</script>
+
+</body>
+</html>

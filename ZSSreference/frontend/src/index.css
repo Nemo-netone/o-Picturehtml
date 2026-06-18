@@ -1,0 +1,57 @@
+:root {
+  --surface: #f7f8f4;
+  --panel: #ffffff;
+  --input-bg: #fbfcff;
+  --text: #2f3439;
+  --text-strong: #101418;
+  --text-muted: #66707a;
+  --border: #d6dbe1;
+  --border-strong: #15191d;
+  --brand: #2563eb;
+  --brand-bg: #eaf1ff;
+  --success: #159447;
+  --warning: #d59b00;
+  --danger: #d33f49;
+  --pixel-shadow: #15191d;
+  --pixel-grid: #e7ebef;
+  --shadow: 4px 4px 0 var(--pixel-shadow);
+
+  font:
+    16px/1.5 ui-monospace,
+    'SFMono-Regular',
+    'Cascadia Mono',
+    'Liberation Mono',
+    'Menlo',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans CJK SC',
+    system-ui,
+    monospace;
+  letter-spacing: 0;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--surface);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: auto;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+* {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}

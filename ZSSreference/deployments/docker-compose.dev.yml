@@ -1,0 +1,22 @@
+# SimulSpeak 本地开发依赖：仅启动最小控制面存储（etcd）。
+# 原型默认支持内存存储，跑测试与本地 UI 无需启动此栈。
+# 端口可用环境变量覆盖，例如 ETCD_CLIENT_PORT=12379 docker compose -f deployments/docker-compose.dev.yml up
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.13
+    container_name: simulspeak-etcd
+    command:
+      - etcd
+      - --name=simulspeak-etcd
+      - --data-dir=/etcd-data
+      - --advertise-client-urls=http://0.0.0.0:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+    environment:
+      ETCD_CLIENT_PORT: ${ETCD_CLIENT_PORT:-2379}
+    ports:
+      - "${ETCD_CLIENT_PORT:-2379}:2379"
+    volumes:
+      - etcd-data:/etcd-data
+
+volumes:
+  etcd-data: {}

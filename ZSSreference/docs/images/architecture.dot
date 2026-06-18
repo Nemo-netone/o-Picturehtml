@@ -1,0 +1,142 @@
+digraph SimulSpeakArchitecture {
+  graph [
+    charset="UTF-8",
+    rankdir=LR,
+    bgcolor="#ffffff",
+    pad="0.35",
+    nodesep="0.8",
+    ranksep="1.0",
+    splines=polyline,
+    outputorder=edgesfirst,
+    fontname="Noto Sans CJK SC",
+    labelloc=t,
+    labeljust=c,
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+        <TR><TD><FONT POINT-SIZE="30"><B>SimulSpeak1 项目架构图</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="14" COLOR="#64748b">浏览器采集英文音频，经 api-server 编排与 pbx-node 媒体处理，实时输出双语字幕与中文配音</FONT></TD></TR>
+      </TABLE>
+    >
+  ];
+
+  node [
+    shape=plain,
+    fontname="Noto Sans CJK SC"
+  ];
+
+  edge [
+    color="#64748b",
+    penwidth=1.8,
+    arrowsize=0.8,
+    fontname="Noto Sans CJK SC",
+    fontsize=12
+  ];
+
+  browser [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="10" COLOR="#38bdf8">
+        <TR><TD BGCOLOR="#ecfeff"><FONT POINT-SIZE="20"><B>浏览器 / React SPA</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT">音频源：标签页 / 系统 / 麦克风</TD></TR>
+        <TR><TD ALIGN="LEFT">WebRTC：Opus 上行，PCMU 配音下行</TD></TR>
+        <TR><TD ALIGN="LEFT">WebSocket：控制、信令、字幕事件</TD></TR>
+        <TR><TD ALIGN="LEFT">界面：双语字幕、策略切换、配音开关、历史</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  api [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="10" COLOR="#f472b6">
+        <TR><TD BGCOLOR="#fdf2f8"><FONT POINT-SIZE="20"><B>信令面 / api-server</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT">前端 WS / HTTP API：client_hello、offer、ice、set_strategy</TD></TR>
+        <TR><TD ALIGN="LEFT">同传会话：Session、utterance、用户状态与连接生命周期</TD></TR>
+        <TR><TD ALIGN="LEFT">PBX 调度：least_load / round_robin / zone_affinity</TD></TR>
+        <TR><TD ALIGN="LEFT">字幕状态机：pending → locked → revised</TD></TR>
+        <TR><TD ALIGN="LEFT">DeepSeek 纠错：上下文、术语表、超时降级、TTS 触发</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  pbx [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="10" COLOR="#4ade80">
+        <TR><TD BGCOLOR="#f0fdf4"><FONT POINT-SIZE="20"><B>媒体面 / pbx-node</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT">控制通道：/pbx/ws，接收 SDP/ICE/TTS 命令</TD></TR>
+        <TR><TD ALIGN="LEFT">Pion WebRTC：PeerConnection、RTP、ICE</TD></TR>
+        <TR><TD ALIGN="LEFT">音频管线：Opus → PCM16/16k → PCMU 20ms 帧</TD></TR>
+        <TR><TD ALIGN="LEFT">VAD 切句：simple / Silero ONNX、pre-roll、静音门控</TD></TR>
+        <TR><TD ALIGN="LEFT">实时 AI：流式 ASR、TMT 快翻、中文 TTS 下行</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  infra [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="10" COLOR="#fb923c">
+        <TR><TD BGCOLOR="#fff7ed"><FONT POINT-SIZE="20"><B>集群与持久化</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT">etcd / memory registry：节点注册、心跳、负载、发现</TD></TR>
+        <TR><TD ALIGN="LEFT">SQLite：会话、字幕、CDR、历史记录</TD></TR>
+        <TR><TD ALIGN="LEFT">worker：词汇本、总结、导出等异步任务</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  cloud [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="10" COLOR="#a78bfa">
+        <TR><TD BGCOLOR="#f5f3ff"><FONT POINT-SIZE="20"><B>外部 AI 服务</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT">腾讯云 ASR：英文流式识别 partial / final</TD></TR>
+        <TR><TD ALIGN="LEFT">腾讯云 TMT：ASR final 后快速中文草稿</TD></TR>
+        <TR><TD ALIGN="LEFT">腾讯云 TTS：中文配音合成</TD></TR>
+        <TR><TD ALIGN="LEFT">DeepSeek API：OpenAI-compatible 翻译纠错</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  browser -> api [
+    label="WebSocket：业务控制 / 信令中继 / 字幕推送",
+    color="#0284c7"
+  ];
+
+  browser -> pbx [
+    label="WebRTC：Opus 音频上行",
+    color="#0ea5e9"
+  ];
+
+  pbx -> browser [
+    label="WebRTC：PCMU 中文配音下行",
+    color="#0ea5e9"
+  ];
+
+  api -> pbx [
+    label="PBX Control WS：SDP / ICE / tts_command",
+    color="#be185d"
+  ];
+
+  pbx -> api [
+    label="asr_result / translation_result / WebRTC events",
+    color="#be185d"
+  ];
+
+  api -> infra [
+    label="会话与字幕入库；节点发现",
+    color="#ea580c"
+  ];
+
+  pbx -> infra [
+    label="节点注册 / 心跳 / 负载上报",
+    color="#ea580c"
+  ];
+
+  api -> cloud [
+    label="DeepSeek Flash 纠错",
+    style=dashed,
+    color="#7c3aed"
+  ];
+
+  pbx -> cloud [
+    label="ASR / TMT / TTS provider 调用",
+    style=dashed,
+    color="#7c3aed"
+  ];
+}

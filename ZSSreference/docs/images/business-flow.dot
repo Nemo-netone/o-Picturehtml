@@ -1,0 +1,98 @@
+digraph SimulSpeakBusinessFlow {
+  graph [
+    charset="UTF-8",
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.35",
+    nodesep="0.45",
+    ranksep="0.55",
+    splines=polyline,
+    outputorder=edgesfirst,
+    fontname="Noto Sans CJK SC",
+    labelloc=t,
+    labeljust=c,
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+        <TR><TD><FONT POINT-SIZE="30"><B>SimulSpeak1 端到端业务流程图</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="14" COLOR="#64748b">从连接建立、音频上行、VAD 切句，到 ASR/TMT/DeepSeek 纠错、字幕锁定与中文配音</FONT></TD></TR>
+      </TABLE>
+    >
+  ];
+
+  node [
+    shape=rect,
+    style="rounded,filled",
+    color="#b8c2cc",
+    penwidth=1.4,
+    fillcolor="#ffffff",
+    fontname="Noto Sans CJK SC",
+    fontsize=14,
+    margin="0.12,0.08"
+  ];
+
+  edge [
+    color="#64748b",
+    penwidth=1.45,
+    arrowsize=0.75,
+    fontname="Noto Sans CJK SC",
+    fontsize=11
+  ];
+
+  start [shape=oval, label=<用户打开 SPA<BR/><FONT POINT-SIZE="11" COLOR="#64748b">选择音频源、策略、配音开关</FONT>>, fillcolor="#ecfeff", color="#0891b2"];
+  ws_connect [label=<1. 前端连接 api-server<BR/><FONT POINT-SIZE="11" COLOR="#64748b">WebSocket connected + client_hello</FONT>>, fillcolor="#fdf2f8", color="#db2777"];
+  select_pbx [label=<2. 创建同传会话并选择 PBX<BR/><FONT POINT-SIZE="11" COLOR="#64748b">查询 registry，绑定 session ↔ pbx-node</FONT>>, fillcolor="#fdf2f8", color="#db2777"];
+  signal_offer [label=<3. WebRTC 信令中继<BR/><FONT POINT-SIZE="11" COLOR="#64748b">offer / answer / ICE 经 api-server 转发</FONT>>, fillcolor="#fdf2f8", color="#db2777"];
+  media_ready [label=<4. WebRTC 媒体链路建立<BR/><FONT POINT-SIZE="11" COLOR="#64748b">浏览器 ↔ pbx-node 直连传输音频</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+
+  opus_up [label=<5. 浏览器发送英文音频<BR/><FONT POINT-SIZE="11" COLOR="#64748b">Opus/RTP 20ms 帧上行</FONT>>, fillcolor="#ecfeff", color="#0891b2"];
+  decode [label=<6. PBX 音频预处理<BR/><FONT POINT-SIZE="11" COLOR="#64748b">Opus 解码 → PCM16/16k 重采样</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+  vad [shape=diamond, label=<7. VAD 判断<BR/><FONT POINT-SIZE="10" COLOR="#64748b">检测到语音？</FONT>>, fillcolor="#fff7ed", color="#ea580c"];
+  silence [label=<静音 / 未成句<BR/><FONT POINT-SIZE="11" COLOR="#64748b">保留 pre-roll，等待下一帧</FONT>>, fillcolor="#fff7ed", color="#ea580c"];
+  open_asr [label=<8. 语音开始：打开 ASR 流<BR/><FONT POINT-SIZE="11" COLOR="#64748b">生成稳定 utteranceID</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+  asr_partial [label=<9. ASR partial 回传<BR/><FONT POINT-SIZE="11" COLOR="#64748b">英文灰字就地刷新</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+  speech_end [shape=diamond, label=<10. 连续静音达到阈值？>, fillcolor="#fff7ed", color="#ea580c"];
+  asr_final [label=<11. 关闭 ASR 流并得到 final<BR/><FONT POINT-SIZE="11" COLOR="#64748b">英文黑字锁定</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+
+  tmt [label=<12. PBX 调 TMT 快翻<BR/><FONT POINT-SIZE="11" COLOR="#64748b">中文灰色草稿，先给用户反馈</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+  ds [label=<13. api-server 调 DeepSeek 纠错<BR/><FONT POINT-SIZE="11" COLOR="#64748b">最近上下文 + 会话术语表</FONT>>, fillcolor="#fdf2f8", color="#db2777"];
+  compare [shape=diamond, label=<14. 纠错结果与 TMT 是否不同？>, fillcolor="#f5f3ff", color="#7c3aed"];
+  lock_same [label=<15A. 锁定译文<BR/><FONT POINT-SIZE="11" COLOR="#64748b">revised=false，中文黑字</FONT>>, fillcolor="#f5f3ff", color="#7c3aed"];
+  lock_revised [label=<15B. 修正并锁定<BR/><FONT POINT-SIZE="11" COLOR="#64748b">revised=true，中文黑字 + 高亮</FONT>>, fillcolor="#f5f3ff", color="#7c3aed"];
+  fallback [label=<降级兜底<BR/><FONT POINT-SIZE="11" COLOR="#64748b">DeepSeek 失败锁 TMT；全失败仅显示英文</FONT>>, fillcolor="#fff7ed", color="#ea580c"];
+
+  tts_decide [shape=diamond, label=<16. 配音开启？>, fillcolor="#ecfeff", color="#0891b2"];
+  tts [label=<17. PBX 合成中文 TTS<BR/><FONT POINT-SIZE="11" COLOR="#64748b">TTS → PCM → PCMU 20ms 帧</FONT>>, fillcolor="#f0fdf4", color="#16a34a"];
+  downlink [label=<18. WebRTC 下行播放配音<BR/><FONT POINT-SIZE="11" COLOR="#64748b">字幕与声音解耦，TTS 失败不影响字幕</FONT>>, fillcolor="#ecfeff", color="#0891b2"];
+  done [shape=oval, label=<该句完成<BR/><FONT POINT-SIZE="11" COLOR="#64748b">等待下一段语音，utteranceID 自增</FONT>>, fillcolor="#ecfeff", color="#0891b2"];
+
+  start -> ws_connect;
+  ws_connect -> select_pbx;
+  select_pbx -> signal_offer;
+  signal_offer -> media_ready;
+  media_ready -> opus_up;
+  opus_up -> decode;
+  decode -> vad;
+  vad -> silence [label="否"];
+  silence -> opus_up [label="下一帧"];
+  vad -> open_asr [label="是"];
+  open_asr -> asr_partial;
+  asr_partial -> speech_end;
+  speech_end -> asr_partial [label="否，继续 partial"];
+  speech_end -> asr_final [label="是"];
+  asr_final -> tmt;
+  tmt -> ds;
+  ds -> compare;
+  ds -> fallback [label="超时 / 失败", style=dashed, color="#ea580c"];
+  fallback -> tts_decide;
+  compare -> lock_same [label="相同"];
+  compare -> lock_revised [label="不同"];
+  lock_same -> tts_decide;
+  lock_revised -> tts_decide;
+  tts_decide -> tts [label="是"];
+  tts_decide -> done [label="否"];
+  tts -> downlink;
+  downlink -> done;
+  done -> opus_up [label="下一句话", style=dashed];
+
+  { rank=same; lock_same; lock_revised; fallback; }
+}
