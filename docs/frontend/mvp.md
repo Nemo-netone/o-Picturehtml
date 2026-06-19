@@ -2,7 +2,7 @@
 
 ## 0. 进度看板
 
-**整体进度：6 / 6 里程碑**
+**整体进度：7 / 7 里程碑**
 
 | 里程碑 | 状态 | 验收 |
 |--------|------|------|
@@ -12,6 +12,7 @@
 | M3 展馆和数据管理复刻 | 已完成 | IndexedDB、筛选、导入导出、批量下载 |
 | M4 旧 bug 修复 | 已完成 | `showStatus`、函数名、按钮结构、卡背资源 |
 | M5 CloudBase 发布准备和二次审计 | 已完成 | `cloudbase-app/`、DOM 对照、SSE 尾行、ZIP 下载、导入状态 |
+| M6 本地浏览器运行 | 已完成 | `scripts/start-local.ps1` 可启动本地静态服务并打开浏览器 |
 
 ## 1. MVP 目标
 
@@ -27,6 +28,7 @@
 | M3 | `assets/js/app.js` 的 gallery、data manager、preview 模块 |
 | M4 | `assets/js/app.js` 的公共 UI、渲染函数、按钮状态 |
 | M5 | `cloudbase-app/*`、`assets/js/app.js` 的响应解析、ZIP 下载、导入状态校验 |
+| M6 | `scripts/start-local.ps1`、`README.md`、`docs/02-architecture.md`、`docs/frontend/conventions.md` |
 
 ## 3. 任务/PR 粒度映射
 
@@ -41,6 +43,8 @@
 | T5 展馆与数据管理 | `assets/js/app.js` 的 IndexedDB、导入导出、下载 | `node --check` + 展馆/数据手动验收 |
 | T6 历史 bug 修复 | 公共 UI、渲染函数、按钮状态 | 对照“已修 bug 清单”逐项验证 |
 | T7 发布准备和二次审计 | `cloudbase-app/`、`README.md`、`docs/*`、`assets/js/app.js` | 发布目录存在、语法检查通过、DOM ID 对照无缺失 |
+| T8 本地浏览器运行 | `scripts/start-local.ps1`、运行说明、架构和约定文档 | 脚本能启动本地 HTTP 服务；页面关键文本可通过 HTTP 访问 |
+| T9 生成模型一致性修复 | `assets/js/app.js`、`cloudbase-app/assets/js/app.js`、接口和架构文档 | 重试不自动换模型；payload 强制 `image_generation` 工具；只回文字时给出明确提示 |
 
 每次只改一个任务范围；跨任务时先在本文件新增拆分说明。
 
@@ -48,7 +52,8 @@
 
 | PR | 范围 | 状态 | 验证 |
 |----|------|------|------|
-| PR-1 `重构静态图片生成工具并准备 CloudBase 发布目录` | T1-T7 首次重构交付：拆分 HTML/CSS/JS、修复历史 bug、建立 SSR 文档栈和 `cloudbase-app/` | 待创建 | 见“验证记录” |
+| PR-1 `重构静态图片生成工具并准备 CloudBase 发布目录` | T1-T7 首次重构交付：拆分 HTML/CSS/JS、修复历史 bug、建立 SSR 文档栈和 `cloudbase-app/` | 已合并 | 见“验证记录” |
+| PR-2 `支持本地浏览器一键运行并修复生成模型一致性` | T8-T9：新增 Windows 本地启动脚本；修复生成失败时自动换模型和只回文字无明确提示的问题 | 待创建 | 见“验证记录” |
 
 ## 4. 已修 bug 清单
 
@@ -75,6 +80,7 @@
 - [ ] 生成成功后图片进入结果区和展馆。
 - [ ] 导出所有数据能下载 JSON。
 - [ ] 清空数据后页面计数归零并恢复默认配置。
+- [ ] 运行 `.\scripts\start-local.ps1` 后浏览器能打开本地页面。
 
 ## 6. 验证记录
 
@@ -88,6 +94,9 @@
 | 2026-06-19 | 静态服务 HTTP 检查 | `python ...with_server.py --server "python -m http.server 5188 --bind 127.0.0.1" ... http-check-port.py` | 通过 | 根目录和 `cloudbase-app/` 均返回 200，关键文本存在；5173 在本机环境下被占用或拦截 |
 | 2026-06-19 | Chrome headless file 检查 | `python E:\tmp\chrome-file-check.py` | 通过 | 根目录和 `cloudbase-app/` 的 `file://` 加载均渲染关键文本，并生成截图 |
 | 2026-06-19 | 浏览器 Playwright 尝试 | `python ...with_server.py ... Playwright` | 未执行成功 | 本机缺少 Python `playwright` 包；未因此引入项目依赖 |
+| 2026-06-19 | 本地运行脚本语法检查 | `PSParser` 解析 `scripts/start-local.ps1` | 通过 | PowerShell 脚本语法有效 |
+| 2026-06-19 | 本地浏览器入口 HTTP 检查 | `python -m http.server 5189 --bind 127.0.0.1` + UTF-8 关键文本检查 | 通过 | 当前 5188 已被占用，服务后移到 5189；`AI 图片生成`、`API 配置管理`、`开始生成`、`图片展馆` 均可通过 HTTP 读取 |
+| 2026-06-19 | 生成模型一致性静态检查 | `rg "getCandidateModels|currentModel|tool_choice|未调用 image_generation" assets/js/app.js` | 通过 | 不再存在候选模型自动切换；payload 已显式 `tool_choice`；只回文字错误可识别 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 

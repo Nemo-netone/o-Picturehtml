@@ -1532,16 +1532,14 @@
     state.generation.timer = null;
   }
 
-  async function generateSingleImageWithRetry(prompt, label, baseUrl, apiKey, model, refDataUrl, maxAttempts = 4) {
-    const candidates = getCandidateModels(model);
+  async function generateSingleImageWithRetry(prompt, label, baseUrl, apiKey, model, refDataUrl, maxAttempts = 3) {
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (state.generation.cancelRequested) throw new Error('生成已取消');
-      const currentModel = candidates[Math.min(attempt - 1, candidates.length - 1)] || model;
       try {
-        if (attempt > 1) appendEvent('event', `${label} 第 ${attempt} 次重试，模型：${currentModel}`);
-        return await generateSingleImage(prompt, label, baseUrl, apiKey, currentModel, refDataUrl);
+        if (attempt > 1) appendEvent('event', `${label} 第 ${attempt} 次重试，模型：${model}`);
+        return await generateSingleImage(prompt, label, baseUrl, apiKey, model, refDataUrl);
       } catch (error) {
         lastError = error;
         if (!isRetryableImageError(error) || attempt === maxAttempts) break;
@@ -1617,6 +1615,7 @@
           },
         ],
         tools: [tool],
+        tool_choice: { type: 'image_generation' },
         stream: true,
       };
     }
@@ -1634,6 +1633,7 @@
         },
       ],
       tools: [tool],
+      tool_choice: { type: 'image_generation' },
       stream: true,
     };
   }
@@ -1645,12 +1645,16 @@
       const data = safeJsonParse(text);
       const dataUrl = extractImageDataUrl(data ?? text);
       if (dataUrl) return dataUrl;
+      if (hasTextOnlyResponse(data ?? text)) {
+        throw new Error('模型未调用 image_generation 工具，只返回了文字。请确认当前选择的 Model 支持图片生成工具。');
+      }
       throw new Error('响应中没有图片数据');
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    const diagnostics = { textChars: 0 };
 
     while (true) {
       const { done, value } = await reader.read();
@@ -1660,17 +1664,20 @@
       buffer = lines.pop() || '';
 
       for (const rawLine of lines) {
-        const dataUrl = processImageStreamLine(rawLine);
+        const dataUrl = processImageStreamLine(rawLine, diagnostics);
         if (dataUrl) return dataUrl;
       }
     }
 
-    const remainingImage = processImageStreamLine(buffer);
+    const remainingImage = processImageStreamLine(buffer, diagnostics);
     if (remainingImage) return remainingImage;
+    if (diagnostics.textChars > 0) {
+      throw new Error('模型未调用 image_generation 工具，只返回了文字。请确认当前选择的 Model 支持图片生成工具。');
+    }
     throw new Error('流结束但没有返回图片');
   }
 
-  function processImageStreamLine(rawLine) {
+  function processImageStreamLine(rawLine, diagnostics = null) {
     const line = String(rawLine || '').trim();
     if (!line) return null;
 
@@ -1693,7 +1700,10 @@
     if (dataUrl) return dataUrl;
 
     const text = extractTextChunk(data);
-    if (text) appendTextChunk(text);
+    if (text) {
+      if (diagnostics) diagnostics.textChars += text.length;
+      appendTextChunk(text);
+    }
     return null;
   }
 
@@ -1757,6 +1767,12 @@
     return candidates.find((value) => typeof value === 'string' && value.trim()) || '';
   }
 
+  function hasTextOnlyResponse(data) {
+    if (typeof data === 'string') return data.trim().length > 0;
+    if (!data || typeof data !== 'object') return false;
+    return Boolean(extractTextChunk(data));
+  }
+
   function safeJsonParse(text) {
     if (typeof text !== 'string') return text;
     try {
@@ -1788,19 +1804,12 @@
     return suffix ? `${basePrompt}, ${suffix}` : basePrompt;
   }
 
-  function getCandidateModels(primaryModel) {
-    const candidates = [primaryModel];
-    const active = getActiveConfig();
-    const pools = [state.modelIds, active?.availableModels].filter(Array.isArray);
-    pools.flat().forEach((model) => {
-      if (model && !candidates.includes(model)) candidates.push(model);
-    });
-    return candidates.slice(0, 5);
-  }
-
   function isRetryableImageError(error) {
     const message = String(error?.message || error || '');
-    return /HTTP\s*5\d\d|负载|上限|繁忙|稍后重试|get_channel|rate limit|timeout|超时|流结束|网络连接失败/i.test(message);
+    if (/未调用 image_generation|只返回了文字|响应中没有图片数据|流结束但没有返回图片/i.test(message)) {
+      return false;
+    }
+    return /HTTP\s*5\d\d|负载|上限|繁忙|稍后重试|get_channel|rate limit|timeout|超时|网络连接失败/i.test(message);
   }
 
   function formatFetchError(error, context = '') {
@@ -1822,6 +1831,9 @@
     } else if (/HTTP\s*5\d\d|负载|上限|get_channel/i.test(message)) {
       message = '模型或通道负载过高';
       suggestions.push('稍后重试', '换一个模型', '先生成 1 张确认链路');
+    } else if (/未调用 image_generation|只返回了文字|响应中没有图片数据|流结束但没有返回图片/i.test(message)) {
+      message = '当前模型没有返回图片';
+      suggestions.push('确认当前 Model 支持 image_generation 工具', '不要选择只会文本输出的模型', '先用 1 张图测试模型链路');
     }
 
     let fullMessage = context ? `${context}: ${message}` : message;

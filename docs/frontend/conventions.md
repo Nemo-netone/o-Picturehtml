@@ -7,6 +7,7 @@
 | `index.html` | 只写页面结构和稳定 ID，不写业务逻辑 |
 | `assets/css/app.css` | 只写样式、状态类、响应式，不写内联业务状态 |
 | `assets/js/app.js` | 只写原生 JS 逻辑，不引入构建依赖 |
+| `scripts/start-local.ps1` | 只写本地静态服务启动逻辑，不写业务逻辑和密钥 |
 
 ## 2. 命名
 
@@ -55,6 +56,12 @@ node --check assets/js/app.js
 
 ```powershell
 node --check cloudbase-app/assets/js/app.js
+```
+
+涉及本地运行入口时，至少执行：
+
+```powershell
+.\scripts\start-local.ps1 -NoBrowser
 ```
 
 涉及页面交互时，按 `docs/frontend/mvp.md` 的手动验收清单检查。
