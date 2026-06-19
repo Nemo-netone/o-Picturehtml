@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSR Document-Driven Workflow"
+  short_description: "Map source docs into project workflows"
+  default_prompt: "Use $ssr to create or audit a document-driven workflow, citing borrowed ZSSreference document structures and validation gates."

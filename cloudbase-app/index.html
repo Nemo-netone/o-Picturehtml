@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>AI 图片生成工具 - o-Picturehtml</title>
+  <link rel="stylesheet" href="./assets/css/app.css" />
+</head>
+<body>
+  <div class="scan-line" aria-hidden="true"></div>
+  <div id="particles" class="particles" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <nav class="top-tabs" aria-label="页面切换">
+      <button class="top-tab active" type="button" data-page="draw">画图</button>
+      <button class="top-tab" type="button" data-page="gallery">
+        图片展馆 <span id="topGalleryBadge" class="badge-soft"></span>
+      </button>
+    </nav>
+
+    <section id="tabDraw" class="tab-page active" aria-label="画图页">
+      <div class="draw-layout">
+        <section class="card main-card">
+          <header class="hero-copy">
+            <p class="eyebrow">OpenAI-compatible image generation</p>
+            <h1>AI 图片生成</h1>
+            <p class="sub">纯前端版：浏览器直连上游 API，支持文生图、图生图、批量生成和本地展馆。</p>
+          </header>
+
+          <section id="guideBox" class="guide-box" hidden>
+            <div class="guide-header">
+              <span class="guide-icon" aria-hidden="true">?</span>
+              <strong class="guide-title">快速开始指南</strong>
+              <button id="closeGuide" class="guide-close" type="button" aria-label="关闭指南">×</button>
+            </div>
+            <div class="guide-content">
+              <div class="guide-step">
+                <span class="step-number">1</span>
+                <div>
+                  <strong>配置 API</strong>
+                  <p>在“API 配置管理”中填写 Base URL、API Key 和模型。</p>
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="step-number">2</span>
+                <div>
+                  <strong>输入提示词</strong>
+                  <p>描述想生成的画面；上传参考图后自动进入图生图模式。</p>
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="step-number">3</span>
+                <div>
+                  <strong>开始生成</strong>
+                  <p>生成结果会写入当前结果区和图片展馆。</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <label class="panel-title">API 配置管理</label>
+              <button id="toggleApiManager" class="icon-btn" type="button" title="展开/收起">
+                <span id="toggleIcon">▼</span>
+              </button>
+            </div>
+
+            <div id="apiConfigList" class="api-config-list"></div>
+
+            <div id="apiManagerPanel" class="api-manager-panel" hidden>
+              <div class="api-form">
+                <div class="form-row single">
+                  <div>
+                    <label for="newConfigName">配置名称</label>
+                    <input id="newConfigName" placeholder="例如：OpenAI 官方" autocomplete="off" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div>
+                    <label for="newBaseUrl">Base URL</label>
+                    <input id="newBaseUrl" placeholder="https://api.openai.com" autocomplete="off" />
+                  </div>
+                  <div>
+                    <label for="newApiKey">API Key</label>
+                    <div class="pwd-wrap">
+                      <input id="newApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+                      <button id="newPwdToggle" class="pwd-toggle" type="button" title="显示/隐藏">眼</button>
+                    </div>
+                  </div>
+                </div>
+                <button id="fetchModelsBtn" type="button" class="secondary full-width">获取可用模型列表</button>
+                <div class="form-row single">
+                  <div>
+                    <label for="newModel">默认 Model</label>
+                    <div class="combo">
+                      <input id="newModel" placeholder="选择或输入模型名称" autocomplete="off" />
+                      <div id="newModelPanel" class="combo-panel"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="modelListDisplay" class="model-list-display" hidden>
+                  <label>可用模型列表</label>
+                  <div id="modelListContent" class="model-list-content"></div>
+                </div>
+                <div class="form-actions">
+                  <button id="saveApiConfig" class="secondary" type="button">保存配置</button>
+                  <button id="cancelApiConfig" class="secondary ghost" type="button">取消</button>
+                </div>
+              </div>
+            </div>
+
+            <button id="addNewApiConfig" type="button" class="full-width">添加新配置</button>
+          </section>
+
+          <section class="current-api-display">
+            <span>当前使用：</span>
+            <strong id="currentApiName">未选择</strong>
+          </section>
+
+          <section id="legacyApiInputs" class="setting-row3 visually-hidden" aria-hidden="true">
+            <label>
+              Base URL
+              <input id="baseUrl" autocomplete="off" />
+            </label>
+            <label>
+              API Key
+              <span class="pwd-wrap">
+                <input id="apiKey" type="password" autocomplete="off" />
+                <button id="pwdToggle" class="pwd-toggle" type="button">眼</button>
+              </span>
+            </label>
+            <label>
+              Model
+              <span class="combo">
+                <input id="model" autocomplete="off" />
+                <span id="modelPanel" class="combo-panel"></span>
+              </span>
+            </label>
+          </section>
+
+          <section class="network-status-card">
+            <div class="network-status-header">
+              <div class="network-status-title">
+                <span id="networkStatusIcon" class="network-icon" aria-hidden="true">⌁</span>
+                <span>网络状态</span>
+              </div>
+              <div class="network-status-indicator">
+                <span id="networkStatusText" class="status-text">检测中...</span>
+                <span id="networkStatusDot" class="status-dot"></span>
+              </div>
+            </div>
+            <div class="network-status-details">
+              <div class="network-detail-item">
+                <span class="detail-label">连接状态</span>
+                <span id="connectionStatus" class="detail-value">-</span>
+              </div>
+              <div class="network-detail-item">
+                <span class="detail-label">响应延迟</span>
+                <span id="networkLatency" class="detail-value">-</span>
+              </div>
+              <div class="network-detail-item">
+                <span class="detail-label">最后检测</span>
+                <span id="lastCheckTime" class="detail-value">-</span>
+              </div>
+            </div>
+            <div class="network-actions">
+              <button id="quickTestBtn" class="network-btn primary" type="button">快速检测</button>
+              <button id="fullDiagBtn" class="network-btn secondary" type="button">完整诊断</button>
+            </div>
+            <pre id="diagResult" class="diag-result" aria-live="polite"></pre>
+          </section>
+
+          <section class="img-picker">
+            <label>参考图片（可选，上传后自动切换为图生图模式，支持多张）</label>
+            <p class="compress-hint">自动压缩到 1024×1024，降低请求体过大的概率。</p>
+            <div class="thumb-row" id="thumbRow">
+              <input id="imageFile" type="file" accept="image/*" multiple hidden />
+              <button id="thumbAdd" class="thumb-add" type="button" title="添加参考图片">+</button>
+            </div>
+          </section>
+
+          <section class="setting-row">
+            <div>
+              <label for="imageSize">图片尺寸</label>
+              <select id="imageSize">
+                <option value="1024x1024">1K - 1024×1024</option>
+                <option value="1792x1024">2K 横向 - 1792×1024</option>
+                <option value="1024x1792">2K 纵向 - 1024×1792</option>
+                <option value="1440x1440">1.4K - 1440×1440</option>
+                <option value="custom">自定义尺寸...</option>
+              </select>
+            </div>
+            <div>
+              <label for="imageQuality">图片质量</label>
+              <select id="imageQuality">
+                <option value="standard">标准质量</option>
+                <option value="hd">高清 HD</option>
+              </select>
+            </div>
+            <div>
+              <label for="imageStyle">生成风格</label>
+              <select id="imageStyle">
+                <option value="natural">自然风格</option>
+                <option value="vivid">生动风格</option>
+              </select>
+            </div>
+          </section>
+
+          <section id="customSizePanel" class="custom-size-panel" hidden>
+            <div class="setting-row two">
+              <div>
+                <label for="customWidth">宽度（16 倍数）</label>
+                <input id="customWidth" type="number" placeholder="1024" min="256" max="4096" step="16" />
+              </div>
+              <div>
+                <label for="customHeight">高度（16 倍数）</label>
+                <input id="customHeight" type="number" placeholder="1024" min="256" max="4096" step="16" />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <label for="prompt">图片描述（提示词）</label>
+            <textarea id="prompt" placeholder="例如：一只在雨中奔跑的柴犬，皮克斯动画风格"></textarea>
+
+            <div class="prompt-examples">
+              <span class="examples-label">快速示例：</span>
+              <div class="examples-buttons">
+                <button type="button" class="example-btn" data-prompt="一只可爱的橘猫坐在窗台上看着外面的雨，温馨的室内光线，电影级画质">可爱猫咪</button>
+                <button type="button" class="example-btn" data-prompt="未来科技城市夜景，霓虹灯闪烁，赛博朋克风格，超高清">赛博朋克</button>
+                <button type="button" class="example-btn" data-prompt="宁静的日式庭院，樱花飘落，小桥流水，水彩画风格">日式庭院</button>
+                <button type="button" class="example-btn" data-prompt="宇宙中的星云，五彩斑斓的星际尘埃，深空摄影风格">星空宇宙</button>
+                <button type="button" class="example-btn" data-prompt="一杯冒着热气的咖啡，旁边放着打开的书，温暖的下午阳光，静物摄影">咖啡时光</button>
+              </div>
+            </div>
+
+            <button id="promptHistoryBtn" type="button" class="history-btn">
+              提示词历史 <span id="promptHistoryCount" class="history-badge"></span>
+            </button>
+            <div id="promptHistoryPanel" class="prompt-history-panel">
+              <div id="promptHistoryList" class="prompt-history-list"></div>
+              <div id="promptHistoryEmpty" class="prompt-history-empty">暂无历史记录</div>
+            </div>
+          </section>
+
+          <section class="gen-control-panel">
+            <div class="gen-count-section">
+              <span class="gen-count-label">生成数量</span>
+              <div class="gen-count-options" role="group" aria-label="生成数量">
+                <button class="gen-count-btn active" type="button" data-count="1">1</button>
+                <button class="gen-count-btn" type="button" data-count="3">3</button>
+                <button class="gen-count-btn" type="button" data-count="5">5</button>
+                <button class="gen-count-btn" type="button" data-count="10">10</button>
+                <button class="gen-count-btn" type="button" data-count="20">20</button>
+                <button class="gen-count-btn" type="button" data-count="50">50</button>
+              </div>
+            </div>
+            <button id="genBtn" class="gen-btn-new" type="button">
+              <span class="gen-btn-icon" aria-hidden="true">✦</span>
+              <span class="gen-btn-text">开始生成</span>
+              <span class="gen-btn-shine" aria-hidden="true"></span>
+            </button>
+          </section>
+
+          <section id="genProgress" class="gen-progress" hidden>
+            <div class="progress-header">
+              <span id="progressText">正在生成 0/0...</span>
+              <button id="cancelGenBtn" class="cancel-gen-btn" type="button">取消</button>
+            </div>
+            <div class="progress-bar-container">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <div class="progress-stats">
+              <span>已完成：<span id="progressSuccess">0</span> 张</span>
+              <span>失败：<span id="progressFailed">0</span> 张</span>
+              <span>剩余：<span id="progressRemaining">0</span> 张</span>
+            </div>
+          </section>
+
+          <section id="resultArea" class="result-area">
+            <div id="resultGrid" class="result-grid"></div>
+          </section>
+
+          <div id="statusBar" class="status-bar" role="status" aria-live="polite"></div>
+        </section>
+
+        <aside class="side-panel">
+          <h2 class="side-panel-header">实时事件流</h2>
+          <div id="loadingMini" class="loading-mini">
+            <div class="spinner-sm" aria-hidden="true"></div>
+            <div class="stats-row">
+              <span id="statEvents">事件: 0</span>
+              <span id="statTextLen">文本: 0 字</span>
+              <span id="statElapsed">0s</span>
+            </div>
+          </div>
+          <div id="eventLog" class="event-log"></div>
+          <pre id="textStream" class="text-stream"></pre>
+        </aside>
+      </div>
+    </section>
+
+    <section id="tabGallery" class="tab-page" aria-label="图片展馆页">
+      <section class="data-manager-card">
+        <div class="data-manager-header">
+          <strong class="data-manager-title">数据管理中心</strong>
+          <button id="toggleDataManager" class="toggle-manager-btn" type="button">▼</button>
+        </div>
+        <div id="dataManagerContent" class="data-manager-content">
+          <div class="storage-info">
+            <div class="storage-item">
+              <span class="storage-label">图片数量</span>
+              <strong id="storageImageCount" class="storage-value">0 张</strong>
+            </div>
+            <div class="storage-item">
+              <span class="storage-label">估算大小</span>
+              <strong id="storageSize" class="storage-value">0 MB</strong>
+            </div>
+            <div class="storage-item">
+              <span class="storage-label">API 配置</span>
+              <strong id="storageApiCount" class="storage-value">0 个</strong>
+            </div>
+            <div class="storage-item">
+              <span class="storage-label">提示词历史</span>
+              <strong id="storagePromptCount" class="storage-value">0 条</strong>
+            </div>
+          </div>
+          <div class="data-actions">
+            <button id="exportAllDataBtn" class="data-action-btn" type="button">导出所有数据</button>
+            <button id="importDataBtn" class="data-action-btn" type="button">导入数据</button>
+            <button id="downloadAllImagesBtn" class="data-action-btn" type="button">批量下载图片</button>
+            <button id="clearAllDataBtn" class="data-action-btn danger" type="button">清空所有数据</button>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoDownloadCheckbox" />
+            <span>生成图片时自动下载到本地</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="gallery-container">
+        <aside class="gallery-control-panel">
+          <h2>展示控制</h2>
+          <section class="panel-section">
+            <label>显示模式</label>
+            <div class="radio-group">
+              <label><input type="radio" name="displayMode" value="card" checked /> 卡牌模式</label>
+              <label><input type="radio" name="displayMode" value="normal" /> 正常显示</label>
+            </div>
+          </section>
+          <section class="panel-section">
+            <label for="sortMode">排序方式</label>
+            <select id="sortMode">
+              <option value="time-desc">时间倒序（最新在前）</option>
+              <option value="time-asc">时间正序（最早在前）</option>
+              <option value="random">随机打乱</option>
+            </select>
+          </section>
+          <section class="panel-section">
+            <label>分组显示</label>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="groupByMode" /> 按生成模式分组</label>
+              <label><input type="checkbox" id="groupByContent" /> 按内容特征分组</label>
+            </div>
+          </section>
+          <section class="panel-section stats">
+            <label>统计信息</label>
+            <div><span>文生图：</span><strong id="text2imgCount">0</strong></div>
+            <div><span>图生图：</span><strong id="img2imgCount">0</strong></div>
+            <div><span>总计：</span><strong id="totalCount">0</strong></div>
+          </section>
+          <section class="panel-section">
+            <label>快速筛选</label>
+            <div class="tag-filters" id="tagFilters">
+              <button class="tag-filter" type="button" data-tag="woman">女性</button>
+              <button class="tag-filter" type="button" data-tag="man">男性</button>
+              <button class="tag-filter" type="button" data-tag="anime">动漫</button>
+              <button class="tag-filter" type="button" data-tag="realistic">写实</button>
+              <button class="tag-filter" type="button" data-tag="landscape">风景</button>
+              <button class="tag-filter" type="button" data-tag="asian">亚洲</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="gallery-card">
+          <h2>生成记录展馆 <span id="galleryCount" class="gallery-count"></span></h2>
+          <div id="galleryGrid" class="gallery-grid"></div>
+          <div id="galleryEmpty" class="gallery-empty" hidden>暂无生成记录，快去生成第一张图片吧。</div>
+        </section>
+      </div>
+
+      <input type="file" id="importFileInput" accept=".json" hidden />
+    </section>
+  </main>
+
+  <section id="previewOverlay" class="preview-overlay" aria-modal="true" aria-label="图片预览">
+    <button class="preview-close" type="button" aria-label="关闭预览">×</button>
+    <button id="previewNavPrev" class="preview-nav preview-nav-prev" type="button" aria-label="上一张">‹</button>
+    <button id="previewNavNext" class="preview-nav preview-nav-next" type="button" aria-label="下一张">›</button>
+    <div id="previewCounter" class="preview-counter">1 / 1</div>
+    <img id="previewImg" alt="预览" draggable="false" />
+    <span class="preview-hint">滚轮缩放 · 方向键切换 · ESC 关闭</span>
+  </section>
+
+  <aside id="networkStatus" class="network-status" aria-live="polite">
+    <span class="network-status-label">网络状态</span>
+    <strong id="networkStatusValue" class="network-status-value">检测中...</strong>
+    <span id="networkPing" class="network-ping" hidden>0ms</span>
+  </aside>
+
+  <script src="./assets/js/app.js" defer></script>
+</body>
+</html>
