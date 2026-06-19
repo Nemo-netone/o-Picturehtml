@@ -52,4 +52,10 @@ node --check assets/js/app.js
 node --check cloudbase-app/assets/js/app.js
 ```
 
+涉及本地浏览器运行、端口、静态资源访问时，额外执行：
+
+```powershell
+.\scripts\start-local.ps1 -NoBrowser
+```
+
 无法真实调用外部图片生成 API 时，说明未验证的边界：真实 Base URL、API Key、Model、CORS、计费/限流。

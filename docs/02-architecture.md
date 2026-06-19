@@ -8,6 +8,7 @@
 | 页面结构层 | `index.html` | 声明页面区域、控件 ID、无业务逻辑 |
 | 样式层 | `assets/css/app.css` | 视觉、布局、响应式、状态样式 |
 | 应用逻辑层 | `assets/js/app.js` | 状态、事件、API、本地存储、渲染 |
+| 本地运行层 | `scripts/start-local.ps1` | Windows 本地启动静态服务、选择可用端口、打开浏览器 |
 | 发布副本层 | `cloudbase-app/` | CloudBase 静态托管副本，只复制入口、样式和脚本 |
 | 浏览器能力层 | localStorage、IndexedDB、Clipboard、FileReader、Canvas | 本地保存、图片压缩、复制、下载 |
 | 外部服务层 | OpenAI-compatible API | 模型列表和图片生成 |
@@ -43,6 +44,7 @@
 | 图片参数 | 尺寸/质量/风格控件 | localStorage `img_gen_image_params` | 请求 payload |
 | 图片记录 | 生成成功 | IndexedDB `img-gen-gallery.records` | 展馆、预览、导出、下载 |
 | 参考图片 | 文件选择 | 内存 `state.refImages` | 图生图请求 |
+| 本地服务端口 | `scripts/start-local.ps1` 参数或自动探测 | PowerShell 进程内 | 浏览器访问静态页面 |
 | 发布副本 | 根目录静态源文件 | `cloudbase-app/` | CloudBase 静态托管 |
 
 ## 4. 关键边界
@@ -50,6 +52,7 @@
 - `index.html` 只放结构，不写业务脚本。
 - `app.css` 不依赖 JavaScript 变量；状态通过 class 和属性表达。
 - `app.js` 不把 API Key 打到控制台，不写入项目文件。
+- `scripts/start-local.ps1` 只负责本地静态服务，不读取或写入 API Key。
 - `cloudbase-app/` 是发布副本，不是新的事实源；源文件修改后必须同步复制。
 - 外部 API 地址必须经过 `normalizeBaseUrl()` 处理，避免重复 `/v1`。
 - IndexedDB 写入失败不能阻断页面其它区域渲染，但要显示状态。
@@ -65,6 +68,8 @@
 | 流式响应尾行未解析 | SSE 最后一行无换行时图片数据可能留在 buffer | `processImageStreamLine()` 统一解析普通行和尾部 buffer |
 | 批量下载依赖外部 CDN | CloudBase/国内网络下 JSZip 加载失败会让批量下载不可用 | 内置 ZIP 生成逻辑，不加载外部脚本 |
 | 导入状态缺少一致性校验 | `activeApiId` 可能指向不存在配置 | 导入后校验 ID，失败则回退第一项配置 |
+| 重试时自动切换候选模型 | 实际请求模型和用户选择不一致 | 生成链路只重试当前选择模型，不从模型列表自动降级 |
+| 模型只返回文本 | 日志大量 `response.output_text.*`，最终没有图片 | 请求显式 `tool_choice: image_generation`；只回文字时提示模型不支持图片工具 |
 
 ## 6. 验证边界
 
@@ -72,3 +77,4 @@
 - 发布副本语法门禁：`node --check cloudbase-app/assets/js/app.js`。
 - 手动门禁：`docs/frontend/mvp.md` 的验收清单。
 - 浏览器门禁：加载页面无控制台初始化错误，Tab、配置、展馆、数据管理可点击。
+- 本地运行门禁：`.\scripts\start-local.ps1 -NoBrowser` 能启动静态服务；端口冲突时自动后移。

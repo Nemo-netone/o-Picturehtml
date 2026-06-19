@@ -53,6 +53,7 @@ Accept: text/event-stream
       "style": "natural"
     }
   ],
+  "tool_choice": { "type": "image_generation" },
   "stream": true
 }
 ```
@@ -67,6 +68,10 @@ Accept: text/event-stream
 ```
 
 ## 3. 响应解析
+
+生成请求必须固定使用用户当前选择的 `model`。失败重试只允许重试同一个模型，不得自动切换到模型列表里的其它模型，避免实际请求模型和页面选择不一致。
+
+生成请求显式携带 `tool_choice: { "type": "image_generation" }`，要求 Responses API 调用图片工具。如果流式响应只出现 `response.output_text.*` 而没有图片数据，前端按“当前模型没有返回图片”处理，并提示用户确认该模型是否支持 `image_generation`。
 
 `app.js` 会递归查找：
 

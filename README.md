@@ -83,6 +83,20 @@
 
 本项目是纯静态前端，直接打开 `index.html` 即可使用。为了避免部分浏览器限制本地文件能力，推荐启动本地静态服务：
 
+Windows 推荐使用本仓库脚本，它默认从 `5188` 开始自动寻找可用端口并打开浏览器：
+
+```powershell
+.\scripts\start-local.ps1
+```
+
+如果不想自动打开浏览器：
+
+```powershell
+.\scripts\start-local.ps1 -NoBrowser
+```
+
+也可以手动启动静态服务：
+
 ```powershell
 python -m http.server 5173
 ```
@@ -90,7 +104,13 @@ python -m http.server 5173
 然后访问：
 
 ```text
-http://localhost:5173/
+http://127.0.0.1:5173/
+```
+
+如果 5173 被占用或浏览器无法打开，换一个端口即可，例如：
+
+```powershell
+python -m http.server 5188 --bind 127.0.0.1
 ```
 
 ## 配置
