@@ -14,8 +14,38 @@
   const DB_VERSION = 1;
   const STORE_NAME = 'records';
   const MAX_PROMPT_HISTORY = 20;
+  const GENERATION_DELAY_MS = 5000;
+  const RETRY_DELAY_MS = 5000;
+  const BACKGROUND_MODE_BLOCK_SELECTOR = [
+    'button',
+    'a',
+    'input',
+    'textarea',
+    'select',
+    'label',
+    '[role="button"]',
+    '[contenteditable="true"]',
+    '.top-tabs',
+    '.card',
+    '.side-panel',
+    '.data-manager-card',
+    '.gallery-control-panel',
+    '.gallery-card',
+    '.network-status',
+    '.preview-overlay',
+  ].join(',');
+
+  const DEFAULT_PICTURE_CONFIG = {
+    id: 'default-picture-newapi',
+    name: 'Picture NewAPI',
+    baseUrl: 'https://sub.codexakihito.xyz',
+    apiKey: '',
+    model: 'gpt-image-2',
+    availableModels: ['gpt-image-2'],
+  };
 
   const DEFAULT_CONFIGS = [
+    DEFAULT_PICTURE_CONFIG,
     {
       id: 'default-openai',
       name: 'OpenAI 官方',
@@ -108,6 +138,7 @@
     initGuideBox();
     createParticles();
     updateNetworkStatusDisplay();
+    renderAll();
 
     try {
       await loadGallery();
@@ -115,7 +146,11 @@
       showStatus('err', `展馆加载失败：${error.message}`);
     }
 
-    renderAll();
+    renderGalleryWithControls();
+    updateStorageInfo();
+    repairRemoteGalleryRecords().catch((error) => {
+      appendEvent('event', `图库旧记录修复失败：${error.message}`);
+    });
   }
 
   function cacheDom() {
@@ -234,11 +269,9 @@
     dom.newPwdToggle?.addEventListener('click', () => togglePassword(dom.newApiKey, dom.newPwdToggle));
     dom.pwdToggle?.addEventListener('click', () => togglePassword(dom.apiKey, dom.pwdToggle));
 
-    bindCombo(dom.newModel, dom.newModelPanel, () => state.fetchedModels, (value) => {
-      state.selectedModel = value;
+    bindCombo(dom.newModel, dom.newModelPanel, () => state.fetchedModels, () => {
+      renderModelList();
     });
-
-    bindCombo(dom.model, dom.modelPanel, () => state.modelIds, () => {});
 
     dom.thumbAdd?.addEventListener('click', () => dom.imageFile?.click());
     dom.imageFile?.addEventListener('change', () => {
@@ -326,9 +359,10 @@
     dom.downloadAllImagesBtn?.addEventListener('click', downloadAllImages);
     dom.clearAllDataBtn?.addEventListener('click', clearAllData);
     dom.autoDownloadCheckbox?.addEventListener('change', () => {
-      state.autoDownload = dom.autoDownloadCheckbox.checked;
+      state.autoDownload = false;
+      dom.autoDownloadCheckbox.checked = true;
       saveAutoDownloadSetting();
-      showStatus('info', state.autoDownload ? '已启用自动下载' : '已禁用自动下载');
+      showStatus('info', '生成图片会保存在浏览器图库，不会自动下载到电脑');
     });
 
     dom.quickTestBtn?.addEventListener('click', quickNetworkTest);
@@ -360,7 +394,21 @@
     window.addEventListener('mousemove', movePreviewDrag);
     window.addEventListener('mouseup', stopPreviewDrag);
     document.addEventListener('keydown', handleGlobalKeydown);
+    document.addEventListener('dblclick', handleBackgroundModeDblClick);
     window.addEventListener('scroll', handleScroll);
+  }
+
+  function handleBackgroundModeDblClick(event) {
+    if (document.body.classList.contains('bg-only')) {
+      document.body.classList.remove('bg-only');
+      return;
+    }
+
+    if (dom.previewOverlay?.classList.contains('open')) return;
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest(BACKGROUND_MODE_BLOCK_SELECTOR)) return;
+
+    document.body.classList.add('bg-only');
   }
 
   function renderAll() {
@@ -437,14 +485,32 @@
 
     if (!Array.isArray(state.apiConfigs) || state.apiConfigs.length === 0) {
       state.apiConfigs = structuredCloneSafe(DEFAULT_CONFIGS);
-      state.activeApiId = state.apiConfigs[0].id;
-      saveApiConfigs();
     }
+
+    ensureDefaultPictureConfig();
 
     if (!state.apiConfigs.some((config) => config.id === state.activeApiId)) {
       state.activeApiId = state.apiConfigs[0]?.id || null;
-      saveApiConfigs();
     }
+
+    if (!state.activeApiId || state.activeApiId === 'default-openai' || state.activeApiId === 'default-custom') {
+      state.activeApiId = DEFAULT_PICTURE_CONFIG.id;
+    }
+
+    saveApiConfigs();
+  }
+
+  function ensureDefaultPictureConfig() {
+    const existing = state.apiConfigs.find((config) => config.id === DEFAULT_PICTURE_CONFIG.id);
+    if (existing) {
+      existing.name = DEFAULT_PICTURE_CONFIG.name;
+      existing.baseUrl = DEFAULT_PICTURE_CONFIG.baseUrl;
+      existing.model = DEFAULT_PICTURE_CONFIG.model;
+      existing.availableModels = [...DEFAULT_PICTURE_CONFIG.availableModels];
+      return;
+    }
+
+    state.apiConfigs.unshift(structuredCloneSafe(DEFAULT_PICTURE_CONFIG));
   }
 
   function saveApiConfigs() {
@@ -681,8 +747,7 @@
     try {
       const models = await fetchModelIds(baseUrl, apiKey);
       state.fetchedModels = models;
-      state.selectedModel = models[0] || '';
-      if (!dom.newModel.value && state.selectedModel) dom.newModel.value = state.selectedModel;
+      if (!dom.newModel.value && models.length === 1) dom.newModel.value = models[0];
       renderModelList();
       showStatus('done', `成功获取 ${models.length} 个模型`);
     } catch (error) {
@@ -695,7 +760,7 @@
   }
 
   async function fetchModelIds(baseUrl, apiKey) {
-    const response = await fetchWithTimeout(`${baseUrl}/v1/models`, {
+    const response = await fetchApiWithTimeout(baseUrl, '/v1/models', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -725,12 +790,12 @@
       return;
     }
 
+    const currentModel = getConfigFormModel();
     state.fetchedModels.forEach((modelId) => {
       const item = createTextElement('button', 'model-item', modelId);
       item.type = 'button';
-      if (state.selectedModel === modelId) item.classList.add('selected');
+      if (currentModel === modelId) item.classList.add('selected');
       item.addEventListener('click', () => {
-        state.selectedModel = modelId;
         dom.newModel.value = modelId;
         renderModelList();
       });
@@ -772,11 +837,16 @@
     });
     input.addEventListener('input', () => {
       render();
+      onPick(input.value.trim());
       panel.classList.add('open');
     });
     input.addEventListener('blur', () => {
       window.setTimeout(() => panel.classList.remove('open'), 150);
     });
+  }
+
+  function getConfigFormModel() {
+    return dom.newModel?.value?.trim() || '';
   }
 
   function normalizeBaseUrl(input) {
@@ -791,6 +861,37 @@
       throw new Error('Base URL 格式不正确');
     }
     return base;
+  }
+
+  function createApiRequest(baseUrl, path, headers = {}) {
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    const requestHeaders = { ...headers };
+
+    if (shouldUseApiProxy(normalizedBaseUrl)) {
+      requestHeaders['X-Picture-Upstream'] = normalizedBaseUrl;
+      return {
+        url: `${window.location.origin}${path}`,
+        headers: requestHeaders,
+      };
+    }
+
+    if (window.location.protocol === 'file:') {
+      throw new Error('当前页面是 file:// 直接打开，无法使用同源代理绕过 CORS。请用本地代理服务地址或部署后的 Cloudflare Pages 地址打开页面。');
+    }
+
+    return {
+      url: `${normalizedBaseUrl}${path}`,
+      headers: requestHeaders,
+    };
+  }
+
+  function shouldUseApiProxy(baseUrl) {
+    if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') return false;
+    try {
+      return new URL(baseUrl).origin !== window.location.origin;
+    } catch {
+      return false;
+    }
   }
 
   function loadPromptHistory() {
@@ -1008,6 +1109,39 @@
     const db = await openDB();
     const records = await readAllRecords(db);
     state.gallery = records.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
+  }
+
+  async function repairRemoteGalleryRecords() {
+    const remoteRecords = state.gallery.filter((record) => isRemoteImageSource(record.dataUrl));
+    if (!remoteRecords.length) return;
+
+    appendEvent('event', `检测到 ${remoteRecords.length} 条远程图片记录，正在尝试转存到浏览器本地图库`);
+    let repaired = 0;
+    let failed = 0;
+
+    for (const record of remoteRecords) {
+      try {
+        const resolved = await resolveImageResult(record.dataUrl);
+        record.dataUrl = resolved.dataUrl;
+        record.repairedAt = new Date().toISOString();
+        delete record.repairError;
+        await saveRecord(record);
+        repaired += 1;
+      } catch (error) {
+        record.repairError = `远程图片转存失败：${error.message}`;
+        await saveRecord(record);
+        failed += 1;
+      }
+    }
+
+    if (repaired > 0) {
+      renderGalleryWithControls();
+      updateStorageInfo();
+      showStatus('done', `已修复 ${repaired} 条旧图片记录，图片已转存到浏览器`, 5000);
+    }
+    if (failed > 0) {
+      appendEvent('event', `${failed} 条旧图片记录无法自动修复，远程链接可能已过期`);
+    }
   }
 
   function readAllRecords(db) {
@@ -1277,7 +1411,23 @@
     image.src = record.dataUrl;
     image.alt = record.prompt || '生成图片';
     image.loading = 'lazy';
+    image.addEventListener('error', () => {
+      image.replaceWith(createBrokenImageNotice(record));
+    }, { once: true });
     return image;
+  }
+
+  function createBrokenImageNotice(record) {
+    const notice = document.createElement('div');
+    notice.className = 'broken-image-notice';
+    const message = record.repairError || (isRemoteImageSource(record.dataUrl)
+      ? '远程图片链接无法显示，可能已经过期'
+      : '图片数据无法显示');
+    notice.append(
+      createTextElement('strong', '', '图片无法显示'),
+      createTextElement('span', '', message),
+    );
+    return notice;
   }
 
   function detectCategory(prompt) {
@@ -1369,20 +1519,26 @@
   }
 
   function validateGenerationInputs() {
-    const apiKey = dom.apiKey.value.trim();
-    const model = dom.model.value.trim();
+    const config = getActiveConfig();
     const prompt = dom.prompt.value.trim();
-    let baseUrl = '';
 
-    if (!apiKey) return { ok: false, message: '请先填写 API Key', focus: dom.apiKey };
+    if (!config) return { ok: false, message: '请先启用一个 API 配置', focus: dom.addNewApiConfig };
+    if (!config.apiKey) return { ok: false, message: '请先在 API 配置中填写 API Key', focus: dom.addNewApiConfig };
+    if (!config.model) return { ok: false, message: '请先在 API 配置中选择或填写 Model', focus: dom.addNewApiConfig };
+
+    let baseUrl = '';
     try {
-      baseUrl = normalizeBaseUrl(dom.baseUrl.value);
+      baseUrl = normalizeBaseUrl(config.baseUrl);
     } catch (error) {
-      return { ok: false, message: error.message, focus: dom.baseUrl };
+      return { ok: false, message: error.message, focus: dom.addNewApiConfig };
     }
-    if (!model) return { ok: false, message: '请填写或选择 Model', focus: dom.model };
+
+    if (dom.baseUrl) dom.baseUrl.value = baseUrl;
+    if (dom.apiKey) dom.apiKey.value = config.apiKey;
+    if (dom.model) dom.model.value = config.model;
+
     if (!prompt) return { ok: false, message: '请填写提示词', focus: dom.prompt };
-    return { ok: true, baseUrl, apiKey, model, prompt };
+    return { ok: true, baseUrl, apiKey: config.apiKey, model: config.model, prompt };
   }
 
   async function generateBatch(prompt, baseUrl, apiKey, model, count) {
@@ -1399,10 +1555,13 @@
 
         try {
           const result = await generateSingleImageWithRetry(enhancedPrompt, label, baseUrl, apiKey, model, null);
-          await addResultCard(label, `img-${Date.now()}-${index}`, enhancedPrompt, result.dataUrl, result.blob);
-          await addToGallery(result.dataUrl, enhancedPrompt, 1, null);
-          if (state.autoDownload) downloadImage(result.dataUrl, `ai-image-${Date.now()}-${index}.png`);
           state.generation.success += 1;
+          try {
+            await storeGeneratedImageResult(result, label, `img-${Date.now()}-${index}`, enhancedPrompt, 1, null);
+          } catch (storeError) {
+            appendEvent('event', storeError.message);
+            showStatus('err', storeError.message, 9000);
+          }
           appendEvent('done', `${label} 完成`);
         } catch (error) {
           state.generation.failed += 1;
@@ -1413,7 +1572,7 @@
         }
 
         if (index < count - 1 && !state.generation.cancelRequested) {
-          await sleep(500);
+          await sleep(GENERATION_DELAY_MS);
         }
       }
 
@@ -1434,9 +1593,12 @@
     try {
       const refDataUrl = state.refImages[0].dataUrl;
       const result = await generateSingleImageWithRetry(prompt, '编辑结果', baseUrl, apiKey, model, refDataUrl);
-      await addResultCard('编辑结果', `img-${Date.now()}-single`, prompt, result.dataUrl, result.blob);
-      await addToGallery(result.dataUrl, prompt, 2, refDataUrl);
-      if (state.autoDownload) downloadImage(result.dataUrl, `ai-image-${Date.now()}-edited.png`);
+      try {
+        await storeGeneratedImageResult(result, '编辑结果', `img-${Date.now()}-single`, prompt, 2, refDataUrl);
+      } catch (storeError) {
+        appendEvent('event', storeError.message);
+        showStatus('err', storeError.message, 9000);
+      }
       clearRefImages();
       state.generation.success = 1;
       state.generation.done = 1;
@@ -1543,7 +1705,7 @@
       } catch (error) {
         lastError = error;
         if (!isRetryableImageError(error) || attempt === maxAttempts) break;
-        await sleep(Math.min(1500 * attempt, 6000));
+        await sleep(RETRY_DELAY_MS);
       }
     }
 
@@ -1552,19 +1714,24 @@
 
   async function generateSingleImage(promptText, label, baseUrl, apiKey, model, refDataUrl) {
     const params = getImageParams();
+    if (usesImagesGenerationsEndpoint(model, refDataUrl)) {
+      return generateSingleImageViaImagesEndpoint(promptText, label, baseUrl, apiKey, model, params);
+    }
+
     const payload = buildImagePayload(promptText, model, params, refDataUrl);
     const controller = new AbortController();
     state.generation.abortController = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), 20 * 60 * 1000);
 
     try {
-      const response = await fetch(`${baseUrl}/v1/responses`, {
+      const request = createApiRequest(baseUrl, '/v1/responses', {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'text/event-stream, application/json',
+        'Content-Type': 'application/json',
+      });
+      const response = await fetch(request.url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: 'text/event-stream, application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: request.headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
         mode: 'cors',
@@ -1580,9 +1747,8 @@
         throw new Error(`HTTP ${response.status}${body ? ` - ${body.slice(0, 500)}` : ''}`);
       }
 
-      const dataUrl = await readImageResponse(response);
-      const blob = await dataUrlToBlob(dataUrl);
-      return { dataUrl, blob };
+      const imageSource = await readImageResponse(response);
+      return { imageSource, mediaAuth: buildMediaAuthContext(baseUrl, apiKey) };
     } catch (error) {
       if (error.name === 'AbortError') {
         throw new Error(state.generation.cancelRequested ? '生成已取消' : '请求超时');
@@ -1591,6 +1757,69 @@
     } finally {
       window.clearTimeout(timeoutId);
     }
+  }
+
+  function usesImagesGenerationsEndpoint(model, refDataUrl) {
+    return !refDataUrl && /^gpt-image-/i.test(String(model || ''));
+  }
+
+  async function generateSingleImageViaImagesEndpoint(promptText, label, baseUrl, apiKey, model, params) {
+    const controller = new AbortController();
+    state.generation.abortController = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 20 * 60 * 1000);
+    const payload = {
+      model,
+      prompt: promptText,
+      n: 1,
+      size: params.size,
+      quality: normalizeImagesEndpointQuality(params.quality),
+      output_format: 'png',
+    };
+
+    try {
+      const request = createApiRequest(baseUrl, '/v1/images/generations', {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      });
+      const response = await fetch(request.url, {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-cache',
+      });
+
+      if (!response.ok) {
+        let body = '';
+        try {
+          body = await response.text();
+        } catch {}
+        throw new Error(`HTTP ${response.status}${body ? ` - ${body.slice(0, 500)}` : ''}`);
+      }
+
+      const data = await response.json();
+      const imageSource = extractImageDataUrl(data);
+      if (!imageSource) throw new Error('No image data returned from images endpoint');
+      appendEvent('event', `${label} completed via images/generations`);
+      return { imageSource, mediaAuth: buildMediaAuthContext(baseUrl, apiKey) };
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error(state.generation.cancelRequested ? 'Generation cancelled' : 'Request timed out');
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  function normalizeImagesEndpointQuality(quality) {
+    if (quality === 'hd') return 'high';
+    if (quality === 'standard') return 'medium';
+    if (['low', 'medium', 'high', 'auto'].includes(quality)) return quality;
+    return 'medium';
   }
 
   function buildImagePayload(promptText, model, params, refDataUrl) {
@@ -1716,6 +1945,7 @@
       if (typeof value === 'string') {
         const text = value.trim();
         if (/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(text)) return text;
+        if (/^https?:\/\//i.test(text)) return text;
         if (looksLikeBase64Image(text)) return `data:image/png;base64,${text}`;
         return null;
       }
@@ -1816,7 +2046,10 @@
     let message = String(error?.message || error || '未知错误');
     const suggestions = [];
 
-    if (/Failed to fetch|NetworkError|网络/i.test(message)) {
+    if (/file:\/\/|同源代理|本地代理服务|Cloudflare Pages/i.test(message)) {
+      message = '当前打开方式无法代理 API';
+      suggestions.push('使用本地代理服务地址打开页面', '或部署到 Cloudflare Pages 后访问站点地址', '不要用 file:// 直接打开 index.html 调用这个接口');
+    } else if (/Failed to fetch|NetworkError|网络/i.test(message)) {
       message = '网络连接失败';
       suggestions.push('检查 Base URL 是否正确', '确认 API 服务允许浏览器 CORS 访问', '确认网络或代理可用');
     } else if (/CORS/i.test(message)) {
@@ -1843,6 +2076,17 @@
     return fullMessage;
   }
 
+  async function storeGeneratedImageResult(result, label, imageName, prompt, mode, refDataUrl) {
+    try {
+      const resolved = await resolveImageResult(result.imageSource, result.mediaAuth);
+      await addResultCard(label, imageName, prompt, resolved.dataUrl, resolved.blob);
+      await addToGallery(resolved.dataUrl, prompt, mode, refDataUrl);
+      return resolved;
+    } catch (error) {
+      throw new Error(`${label} 图片已生成，但没能转存到浏览器本地图库：${error.message}`);
+    }
+  }
+
   async function addResultCard(label, imageName, prompt, dataUrl, blob) {
     const card = document.createElement('article');
     card.className = 'result-card';
@@ -1862,8 +2106,11 @@
 
     const copyBtn = createTextElement('button', 'secondary', '复制');
     copyBtn.type = 'button';
+    copyBtn.disabled = !blob;
+    if (!blob) copyBtn.title = '远程图片未能转成本地 Blob，暂不能复制图片';
     copyBtn.addEventListener('click', async () => {
       try {
+        if (!blob) throw new Error('当前图片暂不能复制，请先打开或下载图片');
         if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
           throw new Error('当前浏览器不支持复制图片');
         }
@@ -1920,6 +2167,99 @@
     return fetch(dataUrl).then((response) => response.blob());
   }
 
+  function isRemoteImageSource(value) {
+    return /^https?:\/\//i.test(String(value || '').trim());
+  }
+
+  async function resolveImageResult(imageSource, mediaAuth = null) {
+    const blob = await imageSourceToBlob(imageSource, mediaAuth);
+    return {
+      dataUrl: await blobToDataUrl(blob),
+      blob,
+    };
+  }
+
+  async function imageSourceToBlob(imageSource, mediaAuth = null) {
+    const source = String(imageSource || '').trim();
+    if (/^data:image\//i.test(source)) {
+      return dataUrlToBlob(source);
+    }
+    if (/^https?:\/\//i.test(source)) {
+      const response = await fetchProxiedMedia(source, mediaAuth);
+      if (!response.ok) {
+        throw new Error(await formatMediaDownloadError(response, source));
+      }
+      return await response.blob();
+    }
+    throw new Error('Unsupported image source returned by API');
+  }
+
+  async function fetchProxiedMedia(source, mediaAuth) {
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      const headers = {
+        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Content-Type': 'application/json',
+      };
+      const authHeader = mediaAuthHeaderForSource(source, mediaAuth);
+      if (authHeader) headers.Authorization = authHeader;
+      return fetch(`${window.location.origin}/__picture_media`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ url: source }),
+        cache: 'no-cache',
+      });
+    }
+    return fetch(source, { method: 'GET', cache: 'no-cache' });
+  }
+
+  async function formatMediaDownloadError(response, source) {
+    let body = '';
+    try {
+      body = await response.text();
+    } catch {}
+    const detail = body ? ` - ${body.slice(0, 500)}` : '';
+    return `Image download failed: HTTP ${response.status}${detail} (${summarizeMediaSource(source)})`;
+  }
+
+  function buildMediaAuthContext(baseUrl, apiKey) {
+    try {
+      return {
+        origin: new URL(normalizeBaseUrl(baseUrl)).origin,
+        authorization: `Bearer ${apiKey}`,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function mediaAuthHeaderForSource(source, mediaAuth) {
+    if (!mediaAuth?.origin || !mediaAuth.authorization) return '';
+    try {
+      return new URL(source).origin === mediaAuth.origin ? mediaAuth.authorization : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function summarizeMediaSource(source) {
+    try {
+      const url = new URL(source);
+      const path = url.pathname.length > 90 ? `${url.pathname.slice(0, 90)}...` : url.pathname;
+      return `${url.origin}${path}`;
+    } catch {
+      return 'invalid media source';
+    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('Failed to read image blob'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   function sleep(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
@@ -1930,6 +2270,11 @@
     return fetch(url, { ...options, signal: controller.signal }).finally(() => {
       window.clearTimeout(timeoutId);
     });
+  }
+
+  function fetchApiWithTimeout(baseUrl, path, options = {}, timeoutMs = 10000) {
+    const request = createApiRequest(baseUrl, path, options.headers || {});
+    return fetchWithTimeout(request.url, { ...options, headers: request.headers }, timeoutMs);
   }
 
   async function quickNetworkTest() {
@@ -1944,7 +2289,7 @@
     const startedAt = Date.now();
 
     try {
-      const response = await fetchWithTimeout(`${validation.baseUrl}/v1/models`, {
+      const response = await fetchApiWithTimeout(validation.baseUrl, '/v1/models', {
         headers: {
           Authorization: `Bearer ${validation.apiKey}`,
         },
@@ -2278,13 +2623,14 @@
   }
 
   function loadAutoDownloadSetting() {
-    state.autoDownload = localStorage.getItem(STORAGE_KEYS.autoDownload) === 'true';
-    if (dom.autoDownloadCheckbox) dom.autoDownloadCheckbox.checked = state.autoDownload;
+    state.autoDownload = false;
+    localStorage.removeItem(STORAGE_KEYS.autoDownload);
+    if (dom.autoDownloadCheckbox) dom.autoDownloadCheckbox.checked = true;
   }
 
   function saveAutoDownloadSetting() {
     try {
-      localStorage.setItem(STORAGE_KEYS.autoDownload, state.autoDownload ? 'true' : 'false');
+      localStorage.setItem(STORAGE_KEYS.autoDownload, 'false');
     } catch {}
   }
 
