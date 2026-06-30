@@ -45,6 +45,9 @@
 | T7 发布准备和二次审计 | `cloudbase-app/`、`README.md`、`docs/*`、`assets/js/app.js` | 发布目录存在、语法检查通过、DOM ID 对照无缺失 |
 | T8 本地浏览器运行 | `scripts/start-local.ps1`、运行说明、架构和约定文档 | 脚本能启动本地 HTTP 服务；页面关键文本可通过 HTTP 访问 |
 | T9 生成模型一致性修复 | `assets/js/app.js`、`cloudbase-app/assets/js/app.js`、接口和架构文档 | 重试不自动换模型；payload 强制 `image_generation` 工具；只回文字时给出明确提示 |
+| T10 展馆卡片隐私和布局优化 | `assets/js/app.js`、`assets/css/app.css`、`cloudbase-app/`、前端规格文档 | 提示词默认隐藏；卡片按钮、时间、标签不重叠；语法检查通过 |
+| T11 顶部更换背景功能 | `index.html`、`assets/js/app.js`、`assets/css/app.css`、`cloudbase-app/`、前端规格文档 | 顶部可上传背景图；背景持久化；可恢复默认；语法检查通过 |
+| T12 背景无遮挡和画图页精简 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端规格文档 | 删除网络状态大卡、参考图卡和快速开始指南；背景纯图模式铺满浏览器；画图区结果提示词默认隐藏；第 1 张保留原提示词，第 2 张起多维增强 |
 
 每次只改一个任务范围；跨任务时先在本文件新增拆分说明。
 
@@ -97,6 +100,11 @@
 | 2026-06-19 | 本地运行脚本语法检查 | `PSParser` 解析 `scripts/start-local.ps1` | 通过 | PowerShell 脚本语法有效 |
 | 2026-06-19 | 本地浏览器入口 HTTP 检查 | `python -m http.server 5189 --bind 127.0.0.1` + UTF-8 关键文本检查 | 通过 | 当前 5188 已被占用，服务后移到 5189；`AI 图片生成`、`API 配置管理`、`开始生成`、`图片展馆` 均可通过 HTTP 读取 |
 | 2026-06-19 | 生成模型一致性静态检查 | `rg "getCandidateModels|currentModel|tool_choice|未调用 image_generation" assets/js/app.js` | 通过 | 不再存在候选模型自动切换；payload 已显式 `tool_choice`；只回文字错误可识别 |
+| 2026-06-29 | Cloudflare Pages 生产部署 | `wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main` | 通过 | 生产分支 `main`，稳定域名 `https://o-picturehtml.pages.dev`；`/v1/*` 与 `/__picture_media` 预检均返回 204 |
+| 2026-06-29 | 展馆卡片隐私和布局优化 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、Playwright 本地卡片检查 | 通过 | 提示词默认隐藏，点击“查看提示词”后展开；无控制台错误 |
+| 2026-06-29 | 顶部更换背景功能 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、Playwright 上传/恢复检查 | 通过 | 背景图保存到 localStorage，支持恢复默认；无控制台错误 |
+| 2026-06-29 | 背景无遮挡和画图页精简 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js` | 待补充浏览器验收 | 删除网络状态大卡和参考图卡；默认背景保留原图且移除全局暗遮罩；双击空白进入纯背景模式；批量第 1 张原提示词，第 2 张起结构化增强 |
+| 2026-06-29 | 画图区结果提示词与背景铺满调整 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、源码残留 `rg`、临时 `python -m http.server` UTF-8 关键文本检查 | 通过 | 快速开始指南已从 HTML/JS/CSS 移除；纯背景模式使用 `cover` 铺满；画图区生成结果卡片新增默认隐藏的提示词面板；源目录与 `cloudbase-app/` 哈希一致 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 

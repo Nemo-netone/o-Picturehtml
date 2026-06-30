@@ -19,6 +19,10 @@
       <button class="top-tab" type="button" data-page="gallery">
         图片展馆 <span id="topGalleryBadge" class="badge-soft"></span>
       </button>
+      <span class="top-divider" aria-hidden="true"></span>
+      <input id="backgroundFileInput" type="file" accept="image/*" hidden />
+      <button id="changeBackgroundBtn" class="top-tab top-tool" type="button">更换背景</button>
+      <button id="resetBackgroundBtn" class="top-tab top-tool subtle" type="button" hidden>恢复默认</button>
     </nav>
 
     <section id="tabDraw" class="tab-page active" aria-label="画图页">
@@ -29,37 +33,6 @@
             <h1>AI 图片生成</h1>
             <p class="sub">纯前端版：浏览器直连上游 API，支持文生图、图生图、批量生成和本地展馆。</p>
           </header>
-
-          <section id="guideBox" class="guide-box" hidden>
-            <div class="guide-header">
-              <span class="guide-icon" aria-hidden="true">?</span>
-              <strong class="guide-title">快速开始指南</strong>
-              <button id="closeGuide" class="guide-close" type="button" aria-label="关闭指南">×</button>
-            </div>
-            <div class="guide-content">
-              <div class="guide-step">
-                <span class="step-number">1</span>
-                <div>
-                  <strong>配置 API</strong>
-                  <p>在“API 配置管理”中填写 Base URL、API Key 和模型。</p>
-                </div>
-              </div>
-              <div class="guide-step">
-                <span class="step-number">2</span>
-                <div>
-                  <strong>输入提示词</strong>
-                  <p>描述想生成的画面；上传参考图后自动进入图生图模式。</p>
-                </div>
-              </div>
-              <div class="guide-step">
-                <span class="step-number">3</span>
-                <div>
-                  <strong>开始生成</strong>
-                  <p>生成结果会写入当前结果区和图片展馆。</p>
-                </div>
-              </div>
-            </div>
-          </section>
 
           <section class="panel">
             <div class="panel-title-row">
@@ -142,47 +115,6 @@
             </label>
           </section>
 
-          <section class="network-status-card">
-            <div class="network-status-header">
-              <div class="network-status-title">
-                <span id="networkStatusIcon" class="network-icon" aria-hidden="true">⌁</span>
-                <span>网络状态</span>
-              </div>
-              <div class="network-status-indicator">
-                <span id="networkStatusText" class="status-text">检测中...</span>
-                <span id="networkStatusDot" class="status-dot"></span>
-              </div>
-            </div>
-            <div class="network-status-details">
-              <div class="network-detail-item">
-                <span class="detail-label">连接状态</span>
-                <span id="connectionStatus" class="detail-value">-</span>
-              </div>
-              <div class="network-detail-item">
-                <span class="detail-label">响应延迟</span>
-                <span id="networkLatency" class="detail-value">-</span>
-              </div>
-              <div class="network-detail-item">
-                <span class="detail-label">最后检测</span>
-                <span id="lastCheckTime" class="detail-value">-</span>
-              </div>
-            </div>
-            <div class="network-actions">
-              <button id="quickTestBtn" class="network-btn primary" type="button">快速检测</button>
-              <button id="fullDiagBtn" class="network-btn secondary" type="button">完整诊断</button>
-            </div>
-            <pre id="diagResult" class="diag-result" aria-live="polite"></pre>
-          </section>
-
-          <section class="img-picker">
-            <label>参考图片（可选，上传后自动切换为图生图模式，支持多张）</label>
-            <p class="compress-hint">自动压缩到 1024×1024，降低请求体过大的概率。</p>
-            <div class="thumb-row" id="thumbRow">
-              <input id="imageFile" type="file" accept="image/*" multiple hidden />
-              <button id="thumbAdd" class="thumb-add" type="button" title="添加参考图片">+</button>
-            </div>
-          </section>
-
           <section class="setting-row">
             <div>
               <label for="imageSize">图片尺寸</label>
@@ -223,7 +155,7 @@
             </div>
           </section>
 
-          <section>
+          <section class="prompt-section">
             <label for="prompt">图片描述（提示词）</label>
             <textarea id="prompt" placeholder="例如：一只在雨中奔跑的柴犬，皮克斯动画风格"></textarea>
 

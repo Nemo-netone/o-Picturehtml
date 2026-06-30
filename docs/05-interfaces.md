@@ -26,7 +26,36 @@ Authorization: Bearer {apiKey}
 ]
 ```
 
-## 2. 外部图片生成接口
+## 2. Cloudflare Pages 同源代理
+
+部署到 Cloudflare Pages 后，前端会优先请求同源代理，并通过 `X-Picture-Upstream` 指定真实上游：
+
+```http
+GET https://o-picturehtml.pages.dev/v1/models
+X-Picture-Upstream: {baseUrl}
+Authorization: Bearer {apiKey}
+```
+
+```http
+POST https://o-picturehtml.pages.dev/v1/responses
+X-Picture-Upstream: {baseUrl}
+Authorization: Bearer {apiKey}
+Content-Type: application/json
+```
+
+媒体下载代理：
+
+```http
+POST https://o-picturehtml.pages.dev/__picture_media
+Authorization: Bearer {apiKey}
+Content-Type: application/json
+
+{ "url": "https://example.com/image.png" }
+```
+
+代理函数只转发请求，不保存 API Key、图片或用户数据。
+
+## 3. 外部图片生成接口
 
 ```http
 POST {baseUrl}/v1/responses
@@ -67,7 +96,7 @@ Accept: text/event-stream
 ]
 ```
 
-## 3. 响应解析
+## 4. 响应解析
 
 生成请求必须固定使用用户当前选择的 `model`。失败重试只允许重试同一个模型，不得自动切换到模型列表里的其它模型，避免实际请求模型和页面选择不一致。
 
@@ -87,7 +116,7 @@ Accept: text/event-stream
 
 流式响应逐行解析 `event:` 和 `data:`；如果响应最后一段没有换行，尾部 buffer 也会进入同一解析路径，避免图片数据被留在未处理缓冲区。
 
-## 4. localStorage
+## 5. localStorage
 
 | Key | 数据 | 说明 |
 |-----|------|------|
@@ -95,10 +124,10 @@ Accept: text/event-stream
 | `img_gen_active_api` | `string` | 当前配置 ID |
 | `img_gen_prompt_history` | `string[]` | 提示词历史 |
 | `img_gen_image_params` | `ImageParams` | 尺寸、质量、风格 |
+| `img_gen_background_image` | `string` | 压缩后的自定义背景 data URL |
 | `img_gen_auto_download` | `"true" / "false"` | 自动下载开关 |
-| `img_gen_guide_shown` | `"true"` | 是否关闭过引导 |
 
-## 5. IndexedDB
+## 6. IndexedDB
 
 数据库：`img-gen-gallery`
 版本：`1`
@@ -111,7 +140,7 @@ Accept: text/event-stream
 {
   "id": 1780000000000,
   "dataUrl": "data:image/png;base64,...",
-  "prompt": "用户提示词或增强提示词",
+  "prompt": "实际送入图片模型的提示词。批量文生图第 1 张保存原提示词，第 2 张起保存结构化增强后的提示词。",
   "mode": 1,
   "refDataUrl": null,
   "createdAt": "2026-06-19T09:00:00.000Z",
@@ -126,7 +155,7 @@ Accept: text/event-stream
 
 `mode = 1` 表示文生图，`mode = 2` 表示图生图。
 
-## 6. 导入导出 JSON
+## 7. 导入导出 JSON
 
 ```json
 {
@@ -145,7 +174,7 @@ Accept: text/event-stream
 
 导入后会校验 `activeApiId` 是否存在于导入后的 `apiConfigs`。如果不存在，自动回退到第一项配置，避免当前配置显示和生成表单失配。
 
-## 7. ZIP 批量下载
+## 8. ZIP 批量下载
 
 批量下载不依赖第三方 CDN。`app.js` 在浏览器内生成 ZIP：
 

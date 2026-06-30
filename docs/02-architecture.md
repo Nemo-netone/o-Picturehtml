@@ -8,8 +8,9 @@
 | 页面结构层 | `index.html` | 声明页面区域、控件 ID、无业务逻辑 |
 | 样式层 | `assets/css/app.css` | 视觉、布局、响应式、状态样式 |
 | 应用逻辑层 | `assets/js/app.js` | 状态、事件、API、本地存储、渲染 |
+| Cloudflare Functions 层 | `functions/` | Pages 部署时提供 `/v1/*` 和 `/__picture_media` 同源代理 |
 | 本地运行层 | `scripts/start-local.ps1` | Windows 本地启动静态服务、选择可用端口、打开浏览器 |
-| 发布副本层 | `cloudbase-app/` | CloudBase 静态托管副本，只复制入口、样式和脚本 |
+| 发布副本层 | `cloudbase-app/` | 静态托管发布副本，包含入口、样式、脚本和函数副本 |
 | 浏览器能力层 | localStorage、IndexedDB、Clipboard、FileReader、Canvas | 本地保存、图片压缩、复制、下载 |
 | 外部服务层 | OpenAI-compatible API | 模型列表和图片生成 |
 
@@ -27,6 +28,7 @@
   -> 校验 active API 配置、Base URL、API Key、Model、提示词
   -> 按有无参考图选择文生图/图生图
   -> 构造 /v1/responses 请求
+  -> 部署环境下经 Cloudflare Pages Functions 同源代理到用户配置 Base URL
   -> 读取 SSE 或 JSON 响应
   -> 提取 data:image/png;base64
   -> 渲染结果卡片
@@ -45,7 +47,7 @@
 | 图片记录 | 生成成功 | IndexedDB `img-gen-gallery.records` | 展馆、预览、导出、下载 |
 | 参考图片 | 文件选择 | 内存 `state.refImages` | 图生图请求 |
 | 本地服务端口 | `scripts/start-local.ps1` 参数或自动探测 | PowerShell 进程内 | 浏览器访问静态页面 |
-| 发布副本 | 根目录静态源文件 | `cloudbase-app/` | CloudBase 静态托管 |
+| 发布副本 | 根目录静态源文件和函数副本 | `cloudbase-app/` | CloudBase/Cloudflare 静态托管 |
 
 ## 4. 关键边界
 
@@ -54,6 +56,7 @@
 - `app.js` 不把 API Key 打到控制台，不写入项目文件。
 - `scripts/start-local.ps1` 只负责本地静态服务，不读取或写入 API Key。
 - `cloudbase-app/` 是发布副本，不是新的事实源；源文件修改后必须同步复制。
+- `functions/` 是 Cloudflare Pages Functions 的部署入口；`cloudbase-app/functions/` 是发布副本，二者需同步。
 - 外部 API 地址必须经过 `normalizeBaseUrl()` 处理，避免重复 `/v1`。
 - IndexedDB 写入失败不能阻断页面其它区域渲染，但要显示状态。
 
@@ -75,6 +78,7 @@
 
 - 语法门禁：`node --check assets/js/app.js`。
 - 发布副本语法门禁：`node --check cloudbase-app/assets/js/app.js`。
+- Cloudflare Functions 语法门禁：`node --check functions/v1/[[path]].js` 和 `node --check functions/__picture_media.js`。
 - 手动门禁：`docs/frontend/mvp.md` 的验收清单。
 - 浏览器门禁：加载页面无控制台初始化错误，Tab、配置、展馆、数据管理可点击。
 - 本地运行门禁：`.\scripts\start-local.ps1 -NoBrowser` 能启动静态服务；端口冲突时自动后移。

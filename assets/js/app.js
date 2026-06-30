@@ -6,8 +6,8 @@
     activeApi: 'img_gen_active_api',
     promptHistory: 'img_gen_prompt_history',
     imageParams: 'img_gen_image_params',
+    backgroundImage: 'img_gen_background_image',
     autoDownload: 'img_gen_auto_download',
-    guideShown: 'img_gen_guide_shown',
   };
 
   const DB_NAME = 'img-gen-gallery';
@@ -64,6 +64,129 @@
     },
   ];
 
+  const PROMPT_VARIATION_AXES = {
+    archetype: [
+      '东方神女感，清冷、端庄、不可轻易靠近，像从古画与月光里走出来的人',
+      '红衣惊鸿感，黑发红衣、强轮廓、回眸一瞬有压倒性的视觉记忆',
+      '雪中仙子感，冷白雪光、纤尘不染、眼神安静却让人无法移开视线',
+      '高定女王感，克制、锋利、奢华，像顶级时装大片里的绝世缪斯',
+      '江南雨巷美人感，湿润空气、油纸伞、柔情与距离感并存',
+      '敦煌飞天灵感，飘带、金粉、壁画色彩，但人物保持真实高级',
+      '未来赛博女神感，霓虹、金属、透明材质，冷艳但不俗艳',
+      '民国电影美人感，复古胶片、旗袍轮廓、眼神有旧时代故事',
+      '花间精灵感，花影、微风、薄纱，甜美但有神性和高级感',
+      '黑金宫廷感，暗色背景、金色边光、珠宝与织物形成压迫式华丽',
+    ],
+    beauty: [
+      '人物必须有倾国倾城的第一眼冲击力，五官精致但自然，气质比单纯漂亮更重要',
+      '眼神要有一眼万年的记忆点，像命运在这一秒停住，观者会被她的视线吸住',
+      '美感要高级、克制、震撼，不要网红脸、廉价写真感或过度甜腻',
+      '脸部轮廓、眉眼、鼻梁、唇形和下颌线要协调，整体像极少见的绝世美人',
+      '让她既有距离感又有情绪，像一个有故事、有身份、有宿命的人物',
+      '美丽要带有灵魂感和压场感，不只是清晰好看，而是让画面有收藏价值',
+      '人物气质要干净、贵气、难忘，任何背景和服装都服务于她的存在感',
+      '让观者第一眼先被脸和眼神震住，第二眼才看到服装、光线和场景细节',
+      '避免普通模板脸，保留真实皮肤纹理和细微表情，让美貌更可信',
+      '整体效果像电影中女主角出场的决定性镜头，美得有故事、有重量',
+    ],
+    framing: [
+      '近景半身肖像，脸和眼神占据第一视觉中心，背景只做氛围衬托',
+      '正面凝视构图，双眼清晰、瞳孔有高光，形成一眼万年的凝视感',
+      '3/4 侧脸回眸，露出优雅下颌线和肩颈轮廓，画面有惊鸿一瞥的瞬间感',
+      '低机位轻微仰拍，增强神女或女王般的气场，不夸张变形',
+      '高机位安静俯拍，人物像被命运凝视，情绪更脆弱、更难忘',
+      '中景全身构图，服装、发丝、手部动作和场景共同塑造绝世气质',
+      '远景叙事构图，人物被宏大环境包围，但仍然是画面唯一灵魂',
+      '居中对称构图，带仪式感、宿命感和封面级稳定性',
+      '斜向动态构图，衣料、发丝和背景形成流动方向，让画面有生命力',
+      '特写构图，聚焦眉眼、唇部、发丝边缘和皮肤质感，避免过度磨皮',
+    ],
+    lens: [
+      '85mm 顶级人像镜头，浅景深，背景化成柔软光斑，脸部立体自然',
+      '135mm 长焦压缩空间，让人物像从背景中被光单独托出',
+      '50mm 电影标准镜头，自然、真实、克制，避免夸张网红透视',
+      '35mm 环境人像镜头，人物和空间共同讲故事，但脸仍是焦点',
+      '电影长镜头语言，前景有轻微虚化遮挡，层次像大银幕剧照',
+      '高定杂志封面镜头，轮廓干净，姿态和服装线条有设计感',
+      '古典肖像镜头，安静稳定，像博物馆收藏级人物画面',
+      '舞台追光镜头，背景暗下去，人物被一束光准确捕捉',
+      '梦幻柔焦镜头，边缘轻微柔化但五官和眼神保持清晰锐利',
+      '大片级特写镜头，眼神、睫毛、唇部和发丝成为视觉锚点',
+    ],
+    lighting: [
+      '月光般的冷白侧光，脸部干净，轮廓有神性和距离感',
+      '金色逆光边缘光，发丝、睫毛、肩颈和衣料边缘发亮',
+      '雨夜霓虹反射光，眼神有湿润高光，背景彩色但不过曝',
+      '宫灯或烛光暖光，局部照亮脸和手，氛围亲密又古典',
+      '雪地漫反射光，皮肤通透但保留真实纹理，整体清冷震撼',
+      '舞台聚光灯，人物从暗背景中出现，像命运性登场',
+      '清晨雾光，低对比、柔软、仙气，但五官不要糊',
+      '窗边冷暖混合光，脸部有细腻明暗过渡，情绪更深',
+      '高定棚拍柔光，珠宝、妆容和皮肤质感高级稳定',
+      '夕阳红金侧光，红衣、黑发和金色轮廓形成强烈记忆点',
+    ],
+    atmosphere: [
+      '惊鸿一瞥的震撼感，像人群中只看一眼就再也忘不掉',
+      '宿命感，像电影女主在关键剧情节点第一次转身',
+      '神性与人间感并存，既美得遥远，又有真实情绪',
+      '清冷破碎感，安静、克制、眼神里有无法说出口的故事',
+      '压场的女王气场，沉稳、高贵、危险但不夸张',
+      '梦境感，柔雾、慢节奏、情绪含蓄，像回忆里最美的一秒',
+      '东方庭院式静谧，留白、风、布料和植物共同营造气息',
+      '复古电影感，颗粒轻微，颜色沉稳，人物像旧胶片里的传奇',
+      '现代都市冷艳感，清晰、锋利、有节奏，带高级距离',
+      '花与风的灵动感，漂亮但不浅薄，甜美里保留灵魂感',
+    ],
+    palette: [
+      '红衣、黑发、雪肤、金色边光，高冲击但不俗艳',
+      '月白、银灰、墨黑、冷蓝，清冷神女调色',
+      '胭脂红、墨绿、暗金，古典华丽但保持高级克制',
+      '黑金主调，少量宝石色点缀，压迫式奢华',
+      '雨夜蓝灰与霓虹粉紫，冷暖对比明显，眼神高光突出',
+      '奶油白、浅蓝、淡粉，空气感轻盈干净，适合仙气美人',
+      '琥珀金、深褐、旧胶片黄，复古电影调色',
+      '樱花粉、木色、苔藓绿，偏东方庭院和花间气质',
+      '黑白灰主调，只保留唇色、肤色或一处红色视觉锚点',
+      '自然肤色优先，背景色彩退后，所有颜色都为脸和眼神服务',
+    ],
+    scene: [
+      '加入轻微风吹动发丝、衣袖或薄纱，让人物像刚从画面里转身',
+      '背景有花枝、纱帘、窗框、珠帘或玻璃反射作为前景层次',
+      '加入雨、雪、薄雾、花瓣或金粉等空气粒子，但保持自然高级',
+      '人物与环境有一个优雅动作：回头、抬眼、扶簪、拢袖、触碰花枝或凝视窗外',
+      '使用纵深路径、门廊、台阶、长街或宫殿廊柱制造命运感',
+      '背景留白，让脸、眼神、发丝和服装轮廓成为第一阅读点',
+      '远处有灯火、月亮、水面反光或霓虹，形成深度而不是平铺背景',
+      '让画面有一个明确视觉锚点：眼神高光、红衣边缘、手部动作、珠宝或光斑',
+      '场景必须服务人物，不要让建筑、花草、装饰抢走主体',
+      '背景细节轻微虚化，主体清晰，整体像海报或封面级人物图',
+    ],
+    style: [
+      '东方神女电影海报风格，留白、风、月光、布料和眼神共同形成震撼',
+      '红衣古风惊鸿写真风格，强对比、强轮廓、强记忆点',
+      '高定时装大片 editorial 风格，姿态、妆造、珠宝和服装都精致克制',
+      '复古胶片电影美人风格，像旧时代传奇女主的定格镜头',
+      '清冷雪景仙侠风格，冷光、薄雾、雪粒和白色衣料突出不可触碰感',
+      '黑金宫廷肖像风格，暗背景、金色边光、珠宝与织物极致华丽',
+      '赛博冷艳女神风格，霓虹、金属反射、未来感妆造，但脸部自然高级',
+      '梦幻现实主义风格，真实人物配合轻微超现实空气感',
+      '江南水墨美人风格，雨、伞、青石、白墙黑瓦，温柔却难忘',
+      '收藏级艺术人像风格，像可用于封面、海报或画册的完成作品',
+    ],
+    detail: [
+      '强调眼神高光、睫毛、眉眼神态、皮肤真实纹理和发丝边缘',
+      '强调脸部骨相自然精致，五官协调，不要网红模板脸或蛇精脸',
+      '强调手部动作自然、肩颈线条舒展、姿态优雅不僵硬',
+      '强调衣料褶皱、刺绣、珠宝、发饰、薄纱和皮肤之间的材质对比',
+      '强调微表情，不要夸张笑容，保留克制、心事和宿命感',
+      '强调景深层次，前景、中景、背景都有清楚分工，但主体永远最强',
+      '强调真实摄影质感，不要塑料皮肤、AI 过度锐化或廉价磨皮',
+      '强调主体比例自然，脸、手、眼睛、牙齿、身体结构准确',
+      '强调画面统一性，妆容、服装、场景、光线、色彩都服务绝世气质',
+      '强调最终作品像可收藏的封面级人物图，而不是普通生成图',
+    ],
+  };
+
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const byId = (id) => document.getElementById(id);
@@ -80,6 +203,7 @@
     refImages: [],
     promptHistory: [],
     gallery: [],
+    currentResults: [],
     imageParams: {
       size: '1024x1024',
       quality: 'standard',
@@ -107,6 +231,7 @@
     preview: {
       index: 0,
       urlMode: false,
+      items: [],
       scale: 1,
       panX: 0,
       panY: 0,
@@ -122,6 +247,7 @@
       latency: null,
       checking: false,
     },
+    backgroundImage: '',
   };
 
   let dbPromise = null;
@@ -135,7 +261,7 @@
     loadPromptHistory();
     loadImageParams();
     loadAutoDownloadSetting();
-    initGuideBox();
+    loadBackgroundImage();
     createParticles();
     updateNetworkStatusDisplay();
     renderAll();
@@ -159,6 +285,9 @@
       tabDraw: byId('tabDraw'),
       tabGallery: byId('tabGallery'),
       topGalleryBadge: byId('topGalleryBadge'),
+      backgroundFileInput: byId('backgroundFileInput'),
+      changeBackgroundBtn: byId('changeBackgroundBtn'),
+      resetBackgroundBtn: byId('resetBackgroundBtn'),
       apiConfigList: byId('apiConfigList'),
       toggleApiManager: byId('toggleApiManager'),
       toggleIcon: byId('toggleIcon'),
@@ -250,16 +379,20 @@
       previewNavPrev: byId('previewNavPrev'),
       previewNavNext: byId('previewNavNext'),
       previewCounter: byId('previewCounter'),
-      closeGuide: byId('closeGuide'),
-      guideBox: byId('guideBox'),
       particles: byId('particles'),
     });
   }
 
   function bindEvents() {
     dom.topTabs.forEach((tab) => {
-      tab.addEventListener('click', () => switchTab(tab.dataset.page));
+      if (tab.dataset.page) {
+        tab.addEventListener('click', () => switchTab(tab.dataset.page));
+      }
     });
+
+    dom.changeBackgroundBtn?.addEventListener('click', () => dom.backgroundFileInput?.click());
+    dom.backgroundFileInput?.addEventListener('change', handleBackgroundFileChange);
+    dom.resetBackgroundBtn?.addEventListener('click', resetBackgroundImage);
 
     dom.toggleApiManager?.addEventListener('click', toggleApiManager);
     dom.addNewApiConfig?.addEventListener('click', startAddConfig);
@@ -429,6 +562,100 @@
 
   function handleScroll() {
     $('.top-tabs')?.classList.toggle('scrolled', window.scrollY > 10);
+  }
+
+  async function handleBackgroundFileChange() {
+    const file = dom.backgroundFileInput?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showStatus('err', '请选择图片文件作为背景');
+      dom.backgroundFileInput.value = '';
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToCompressedBackground(file);
+      state.backgroundImage = dataUrl;
+      saveBackgroundImage();
+      applyBackgroundImage();
+      showStatus('done', '背景图已更换');
+    } catch (error) {
+      showStatus('err', `背景图更换失败：${error.message}`);
+    } finally {
+      dom.backgroundFileInput.value = '';
+    }
+  }
+
+  function loadBackgroundImage() {
+    try {
+      state.backgroundImage = localStorage.getItem(STORAGE_KEYS.backgroundImage) || '';
+    } catch {
+      state.backgroundImage = '';
+    }
+    applyBackgroundImage();
+  }
+
+  function saveBackgroundImage() {
+    try {
+      if (state.backgroundImage) {
+        localStorage.setItem(STORAGE_KEYS.backgroundImage, state.backgroundImage);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.backgroundImage);
+      }
+    } catch (error) {
+      throw new Error('背景图保存失败，图片可能过大');
+    }
+  }
+
+  function applyBackgroundImage() {
+    if (state.backgroundImage) {
+      document.body.style.setProperty('--custom-bg-image', `url("${state.backgroundImage}")`);
+      document.body.classList.add('custom-bg');
+    } else {
+      document.body.style.removeProperty('--custom-bg-image');
+      document.body.classList.remove('custom-bg');
+    }
+    if (dom.resetBackgroundBtn) {
+      dom.resetBackgroundBtn.hidden = !state.backgroundImage;
+    }
+  }
+
+  function resetBackgroundImage() {
+    state.backgroundImage = '';
+    saveBackgroundImage();
+    applyBackgroundImage();
+    showStatus('info', '已恢复默认背景');
+  }
+
+  function fileToCompressedBackground(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+      reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error('图片无法解析'));
+        image.onload = () => {
+          try {
+            const maxSide = 1920;
+            const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+            const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+            const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('当前浏览器不支持图片压缩');
+            ctx.drawImage(image, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          } catch (error) {
+            reject(error);
+          }
+        };
+        image.src = String(reader.result || '');
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function showStatus(type, message, timeout = 4500) {
@@ -1236,9 +1463,9 @@
 
     if (state.galleryView.groupByMode || state.galleryView.groupByContent) {
       const groups = buildGalleryGroups(filtered);
-      renderGroupedGallery(groups);
+      renderGroupedGallery(groups, filtered);
     } else {
-      filtered.forEach((record) => dom.galleryGrid.appendChild(createGalleryCard(record)));
+      filtered.forEach((record) => dom.galleryGrid.appendChild(createGalleryCard(record, filtered)));
     }
 
     updateGalleryStats();
@@ -1291,7 +1518,8 @@
     return groups;
   }
 
-  function renderGroupedGallery(groups) {
+  function renderGroupedGallery(groups, previewItems = []) {
+    const navigationItems = previewItems.length ? previewItems : Array.from(groups.values()).flat();
     groups.forEach((items, groupName) => {
       const block = document.createElement('section');
       block.className = 'group-block';
@@ -1303,7 +1531,7 @@
       );
       const grid = document.createElement('div');
       grid.className = 'group-grid';
-      items.forEach((item) => grid.appendChild(createGalleryCard(item)));
+      items.forEach((item) => grid.appendChild(createGalleryCard(item, navigationItems)));
       header.addEventListener('click', () => {
         grid.hidden = !grid.hidden;
       });
@@ -1312,46 +1540,52 @@
     });
   }
 
-  function createGalleryCard(record) {
+  function createGalleryCard(record, previewItems = state.gallery) {
     const card = document.createElement('article');
     card.className = `gallery-item ${state.galleryView.displayMode === 'card' ? 'card-mode' : 'normal-mode'}`;
 
     const thumb = document.createElement('div');
     thumb.className = 'thumb-wrap';
-    const imageIndex = state.gallery.findIndex((item) => item.id === record.id);
+    const image = createGalleryImage(record);
+    image.classList.add('gallery-image');
 
     if (state.galleryView.displayMode === 'card') {
       const inner = document.createElement('div');
       inner.className = 'flip-card-inner';
       const front = document.createElement('div');
       front.className = 'flip-card-front';
+      front.appendChild(image);
       front.appendChild(createTextElement('span', 'card-back-symbol', 'AI'));
-      const back = document.createElement('div');
-      back.className = 'flip-card-back';
-      const image = createGalleryImage(record);
-      back.appendChild(image);
-      inner.append(front, back);
+      inner.appendChild(front);
       thumb.appendChild(inner);
     } else {
-      const image = createGalleryImage(record);
       image.classList.add('normal-image');
       thumb.appendChild(image);
     }
 
-    thumb.addEventListener('click', () => openPreview(imageIndex >= 0 ? imageIndex : 0));
+    thumb.addEventListener('click', () => {
+      const imageIndex = previewItems.findIndex((item) => item.id === record.id);
+      openPreviewList(previewItems, imageIndex >= 0 ? imageIndex : 0);
+    });
     thumb.appendChild(createTextElement('span', 'mode-badge', record.mode === 2 ? '图生图' : '文生图'));
     card.appendChild(thumb);
 
     const info = document.createElement('div');
     info.className = 'info';
 
+    const summary = document.createElement('div');
+    summary.className = 'gallery-summary';
     const tags = generatePromptTags(record.prompt);
     if (tags.length) {
       const tagsWrap = document.createElement('div');
       tagsWrap.className = 'prompt-tags';
       tags.forEach((tag) => tagsWrap.appendChild(createTextElement('span', 'prompt-tag', tag)));
-      info.appendChild(tagsWrap);
+      summary.appendChild(tagsWrap);
     }
+    const timeEl = createTextElement('time', 'gallery-time', formatGalleryTime(record));
+    if (record.createdAt) timeEl.dateTime = record.createdAt;
+    summary.appendChild(timeEl);
+    info.appendChild(summary);
 
     if (record.refDataUrl) {
       const refRow = document.createElement('div');
@@ -1371,37 +1605,50 @@
       info.appendChild(refRow);
     }
 
+    const promptId = `gallery-prompt-${record.id}`;
     const toggleBtn = createTextElement('button', 'prompt-toggle-btn', '查看提示词');
     toggleBtn.type = 'button';
-    const promptRow = document.createElement('div');
-    promptRow.className = 'prompt-row';
-    promptRow.hidden = true;
-    const promptEl = createTextElement('div', 'prompt-text', record.prompt || '');
-    const copyBtn = createTextElement('button', 'copy-prompt', '复制');
-    copyBtn.type = 'button';
-    copyBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      copyText(record.prompt, '提示词已复制');
-    });
-    promptRow.append(promptEl, copyBtn);
-    toggleBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      promptRow.hidden = !promptRow.hidden;
-      toggleBtn.textContent = promptRow.hidden ? '查看提示词' : '收起提示词';
-    });
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.setAttribute('aria-controls', promptId);
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.appendChild(createTextElement('span', '', record.time || ''));
+    const actions = document.createElement('div');
+    actions.className = 'gallery-actions';
     const delBtn = createTextElement('button', 'del-btn', '删除');
     delBtn.type = 'button';
     delBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       deleteFromGallery(record.id);
     });
-    meta.appendChild(delBtn);
+    actions.append(toggleBtn, delBtn);
 
-    info.append(toggleBtn, promptRow, meta);
+    const promptPanel = document.createElement('div');
+    promptPanel.id = promptId;
+    promptPanel.className = 'gallery-prompt-panel';
+    promptPanel.hidden = true;
+
+    const promptHeader = document.createElement('div');
+    promptHeader.className = 'gallery-prompt-header';
+    promptHeader.appendChild(createTextElement('span', '', '提示词'));
+    const copyBtn = createTextElement('button', 'copy-prompt', '复制提示词');
+    copyBtn.type = 'button';
+    copyBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      copyText(record.prompt, '提示词已复制');
+    });
+    promptHeader.appendChild(copyBtn);
+
+    const promptEl = createTextElement('p', 'prompt-text', record.prompt || '这条记录没有保存提示词。');
+    promptPanel.append(promptHeader, promptEl);
+
+    toggleBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      promptPanel.hidden = !promptPanel.hidden;
+      const expanded = !promptPanel.hidden;
+      toggleBtn.textContent = expanded ? '收起提示词' : '查看提示词';
+      toggleBtn.setAttribute('aria-expanded', String(expanded));
+    });
+
+    info.append(actions, promptPanel);
     card.appendChild(info);
     return card;
   }
@@ -1409,12 +1656,28 @@
   function createGalleryImage(record) {
     const image = document.createElement('img');
     image.src = record.dataUrl;
-    image.alt = record.prompt || '生成图片';
+    image.alt = record.mode === 2 ? '图生图生成图片' : '文生图生成图片';
     image.loading = 'lazy';
     image.addEventListener('error', () => {
       image.replaceWith(createBrokenImageNotice(record));
     }, { once: true });
     return image;
+  }
+
+  function formatGalleryTime(record) {
+    if (record.createdAt) {
+      const date = new Date(record.createdAt);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    return record.time || '-';
   }
 
   function createBrokenImageNotice(record) {
@@ -1486,6 +1749,7 @@
       dom.textStream.classList.remove('active');
     }
     if (dom.resultGrid) dom.resultGrid.innerHTML = '';
+    state.currentResults = [];
     dom.resultArea?.classList.add('active');
     state.generation.done = 0;
     state.generation.success = 0;
@@ -1549,15 +1813,16 @@
       for (let index = 0; index < count; index += 1) {
         if (state.generation.cancelRequested) break;
 
-        const enhancedPrompt = enhancePrompt(prompt, index);
+        const batchSeed = state.generation.startTime || Date.now();
+        const actualPrompt = index === 0 ? prompt : enhancePrompt(prompt, index - 1, batchSeed);
         const label = index === 0 ? '原始提示词' : `增强版本 ${index}`;
         appendEvent('event', `生成第 ${index + 1}/${count} 张：${label}`);
 
         try {
-          const result = await generateSingleImageWithRetry(enhancedPrompt, label, baseUrl, apiKey, model, null);
+          const result = await generateSingleImageWithRetry(actualPrompt, label, baseUrl, apiKey, model, null);
           state.generation.success += 1;
           try {
-            await storeGeneratedImageResult(result, label, `img-${Date.now()}-${index}`, enhancedPrompt, 1, null);
+            await storeGeneratedImageResult(result, label, `img-${Date.now()}-${index}`, actualPrompt, 1, null);
           } catch (storeError) {
             appendEvent('event', storeError.message);
             showStatus('err', storeError.message, 9000);
@@ -2012,26 +2277,46 @@
     }
   }
 
-  function enhancePrompt(basePrompt, index) {
-    const enhancements = [
-      '',
-      'highly detailed, intricate details, sharp focus, 8k resolution',
-      'dramatic lighting, cinematic lighting, volumetric lighting, studio lighting',
-      'masterpiece, best quality, professional, award winning',
-      'perfect composition, rule of thirds, depth of field, dynamic angle',
-      'vibrant colors, rich colors, color grading, color harmony',
-      'photorealistic, ultra detailed, lifelike textures',
-      'atmospheric, moody, ethereal, dreamy',
-      'professional photography, magazine cover, studio quality',
-      'dynamic pose, interesting perspective, creative composition',
-      'soft focus, bokeh, shallow depth of field',
-      'golden hour lighting, natural lighting',
-      'visually stunning, eye-catching, impressive',
-      'high resolution, ultra hd, crystal clear',
-      'artistic, creative, unique style',
-    ];
-    const suffix = enhancements[index % enhancements.length];
-    return suffix ? `${basePrompt}, ${suffix}` : basePrompt;
+  function enhancePrompt(basePrompt, index, batchSeed = 0) {
+    const prompt = String(basePrompt || '').trim();
+    const variation = buildPromptVariation(index, batchSeed);
+    return [
+      `核心主题：${prompt}`,
+      `增强版本：${index + 1}。编号只用于生成差异化，不要把编号、文字或水印画进图片。`,
+      `人物原型：${variation.archetype}。`,
+      `美貌与冲击力：${variation.beauty}。`,
+      `本次增强目标：在不改变核心主体和用户要求的前提下，生成与原始提示词版本以及其它增强版本明显不同的一张人物图；每一张都要有倾国倾城、一眼万年的震撼感，不要只做同义词替换，要同时改变人物气质、镜头、景别、光线、氛围、构图、色彩、场景调度、风格和细节侧重点。`,
+      `镜头与景别：${variation.framing}；${variation.lens}。`,
+      `光线与氛围：${variation.lighting}；${variation.atmosphere}。`,
+      `色彩方案：${variation.palette}。`,
+      `场景调度：${variation.scene}。`,
+      `风格方向：${variation.style}。`,
+      `细节要求：${variation.detail}。`,
+      `质量约束：主体结构准确，脸、眼睛、手部、牙齿、身体比例自然；不要文字、水印、logo、多余肢体、畸形手指、网红模板脸、廉价影楼感、过度磨皮、低清晰度、重复人物。`,
+    ].join('\n');
+  }
+
+  function buildPromptVariation(index, batchSeed = 0) {
+    return {
+      archetype: pickPromptAxis('archetype', index, 5, 8, batchSeed),
+      beauty: pickPromptAxis('beauty', index, 7, 9, batchSeed),
+      framing: pickPromptAxis('framing', index, 1, 0, batchSeed),
+      lens: pickPromptAxis('lens', index, 3, 1, batchSeed),
+      lighting: pickPromptAxis('lighting', index, 7, 2, batchSeed),
+      atmosphere: pickPromptAxis('atmosphere', index, 9, 3, batchSeed),
+      palette: pickPromptAxis('palette', index, 3, 4, batchSeed),
+      scene: pickPromptAxis('scene', index, 7, 5, batchSeed),
+      style: pickPromptAxis('style', index, 9, 6, batchSeed),
+      detail: pickPromptAxis('detail', index, 1, 7, batchSeed),
+    };
+  }
+
+  function pickPromptAxis(axisName, index, step, offset, batchSeed = 0) {
+    const axis = PROMPT_VARIATION_AXES[axisName] || [];
+    if (!axis.length) return '';
+    const seedOffset = Math.abs(Math.floor(Number(batchSeed) || 0)) % axis.length;
+    const cycleOffset = Math.floor((index + seedOffset) / axis.length);
+    return axis[(index * step + offset + seedOffset + cycleOffset) % axis.length];
   }
 
   function isRetryableImageError(error) {
@@ -2091,16 +2376,31 @@
     const card = document.createElement('article');
     card.className = 'result-card';
     card.appendChild(createTextElement('div', 'label', label));
+    const previewRecord = {
+      id: `result-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      dataUrl,
+      prompt,
+      mode: 1,
+      createdAt: new Date().toISOString(),
+    };
+    const previewIndex = state.currentResults.length;
+    state.currentResults.push(previewRecord);
 
     const image = document.createElement('img');
     image.src = dataUrl;
     image.alt = prompt || imageName;
-    image.addEventListener('click', () => openPreview(dataUrl));
+    image.addEventListener('click', () => openPreviewList(state.currentResults, previewIndex));
     card.appendChild(image);
 
     const actions = document.createElement('div');
-    actions.className = 'actions';
-    const downloadBtn = createTextElement('button', '', '下载');
+    actions.className = 'gallery-actions result-actions';
+    const promptId = `result-prompt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const toggleBtn = createTextElement('button', 'prompt-toggle-btn', '查看提示词');
+    toggleBtn.type = 'button';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.setAttribute('aria-controls', promptId);
+
+    const downloadBtn = createTextElement('button', 'secondary', '下载');
     downloadBtn.type = 'button';
     downloadBtn.addEventListener('click', () => downloadImage(dataUrl, `${imageName}.png`));
 
@@ -2121,8 +2421,36 @@
       }
     });
 
-    actions.append(downloadBtn, copyBtn);
-    card.appendChild(actions);
+    actions.append(toggleBtn, downloadBtn, copyBtn);
+
+    const promptPanel = document.createElement('div');
+    promptPanel.id = promptId;
+    promptPanel.className = 'gallery-prompt-panel';
+    promptPanel.hidden = true;
+
+    const promptHeader = document.createElement('div');
+    promptHeader.className = 'gallery-prompt-header';
+    promptHeader.appendChild(createTextElement('span', '', '提示词'));
+
+    const copyPromptBtn = createTextElement('button', 'copy-prompt', '复制提示词');
+    copyPromptBtn.type = 'button';
+    copyPromptBtn.addEventListener('click', () => copyText(prompt, '提示词已复制'));
+    promptHeader.appendChild(copyPromptBtn);
+
+    const promptEl = createTextElement('p', 'prompt-text', prompt || '这张图片没有保存提示词。');
+    promptPanel.append(promptHeader, promptEl);
+
+    toggleBtn.addEventListener('click', () => {
+      promptPanel.hidden = !promptPanel.hidden;
+      const expanded = !promptPanel.hidden;
+      toggleBtn.textContent = expanded ? '收起提示词' : '查看提示词';
+      toggleBtn.setAttribute('aria-expanded', String(expanded));
+    });
+
+    const info = document.createElement('div');
+    info.className = 'result-info';
+    info.append(actions, promptPanel);
+    card.appendChild(info);
     dom.resultGrid.appendChild(card);
   }
 
@@ -2355,29 +2683,33 @@
 
   function updateNetworkStatusDisplay() {
     if (state.network.checking) {
-      dom.networkStatusText.textContent = '检测中...';
-      dom.networkStatusDot.className = 'status-dot checking';
-      dom.connectionStatus.textContent = '检测中';
-      dom.networkStatusValue.textContent = '检测中';
+      if (dom.networkStatusText) dom.networkStatusText.textContent = '检测中...';
+      if (dom.networkStatusDot) dom.networkStatusDot.className = 'status-dot checking';
+      if (dom.connectionStatus) dom.connectionStatus.textContent = '检测中';
+      if (dom.networkStatusValue) dom.networkStatusValue.textContent = '检测中';
       return;
     }
 
     const online = state.network.isOnline;
-    dom.networkStatusText.textContent = online ? '在线' : '离线';
-    dom.networkStatusDot.className = `status-dot ${online ? 'online' : 'offline'}`;
-    dom.connectionStatus.textContent = online ? '正常' : '断开';
-    dom.connectionStatus.style.color = online ? 'var(--success)' : 'var(--danger)';
-    dom.networkStatusValue.textContent = online ? '在线' : '离线';
+    if (dom.networkStatusText) dom.networkStatusText.textContent = online ? '在线' : '离线';
+    if (dom.networkStatusDot) dom.networkStatusDot.className = `status-dot ${online ? 'online' : 'offline'}`;
+    if (dom.connectionStatus) {
+      dom.connectionStatus.textContent = online ? '正常' : '断开';
+      dom.connectionStatus.style.color = online ? 'var(--success)' : 'var(--danger)';
+    }
+    if (dom.networkStatusValue) dom.networkStatusValue.textContent = online ? '在线' : '离线';
 
     if (state.network.latency != null) {
-      dom.networkLatency.textContent = `${state.network.latency}ms`;
-      dom.networkPing.hidden = false;
-      dom.networkPing.textContent = `${state.network.latency}ms`;
+      if (dom.networkLatency) dom.networkLatency.textContent = `${state.network.latency}ms`;
+      if (dom.networkPing) {
+        dom.networkPing.hidden = false;
+        dom.networkPing.textContent = `${state.network.latency}ms`;
+      }
     } else {
-      dom.networkLatency.textContent = '-';
-      dom.networkPing.hidden = true;
+      if (dom.networkLatency) dom.networkLatency.textContent = '-';
+      if (dom.networkPing) dom.networkPing.hidden = true;
     }
-    dom.lastCheckTime.textContent = state.network.lastCheck || '-';
+    if (dom.lastCheckTime) dom.lastCheckTime.textContent = state.network.lastCheck || '-';
   }
 
   function exportAllData() {
@@ -2607,6 +2939,7 @@
       state.activeApiId = state.apiConfigs[0].id;
       state.promptHistory = [];
       state.refImages = [];
+      state.backgroundImage = '';
       state.autoDownload = false;
       state.imageParams = { size: '1024x1024', quality: 'standard', style: 'natural' };
       saveApiConfigs();
@@ -2614,6 +2947,7 @@
       saveImageParams();
       saveAutoDownloadSetting();
       loadImageParams();
+      applyBackgroundImage();
       dom.autoDownloadCheckbox.checked = false;
       renderAll();
       showStatus('done', '所有数据已清空');
@@ -2638,39 +2972,54 @@
     resetPreviewTransform();
     if (typeof indexOrUrl === 'string') {
       state.preview.urlMode = true;
+      state.preview.items = [];
       dom.previewImg.src = indexOrUrl;
       dom.previewNavPrev.hidden = true;
       dom.previewNavNext.hidden = true;
       dom.previewCounter.hidden = true;
     } else {
-      state.preview.urlMode = false;
-      state.preview.index = Math.min(Math.max(0, indexOrUrl), Math.max(0, state.gallery.length - 1));
-      showPreviewImage(state.preview.index);
-      dom.previewNavPrev.hidden = false;
-      dom.previewNavNext.hidden = false;
-      dom.previewCounter.hidden = false;
-      updatePreviewNavigation();
+      openPreviewList(state.gallery, indexOrUrl, false);
+      return;
     }
+    dom.previewOverlay.classList.add('open');
+  }
+
+  function openPreviewList(items, index = 0, resetTransform = true) {
+    const previewItems = Array.isArray(items)
+      ? items.filter((item) => item?.dataUrl)
+      : [];
+    if (!previewItems.length) return;
+    if (resetTransform) resetPreviewTransform();
+    state.preview.urlMode = false;
+    state.preview.items = previewItems;
+    state.preview.index = Math.min(Math.max(0, index), previewItems.length - 1);
+    showPreviewImage(state.preview.index);
+    const canNavigate = previewItems.length > 1;
+    dom.previewNavPrev.hidden = !canNavigate;
+    dom.previewNavNext.hidden = !canNavigate;
+    dom.previewCounter.hidden = !canNavigate;
     dom.previewOverlay.classList.add('open');
   }
 
   function closePreview() {
     dom.previewOverlay.classList.remove('open');
     dom.previewImg.src = '';
+    state.preview.items = [];
   }
 
   function showPreviewImage(index) {
-    const record = state.gallery[index];
+    const record = state.preview.items[index];
     if (!record) return;
     state.preview.index = index;
     dom.previewImg.src = record.dataUrl;
-    dom.previewCounter.textContent = `${index + 1} / ${state.gallery.length}`;
+    dom.previewCounter.textContent = `${index + 1} / ${state.preview.items.length}`;
     updatePreviewNavigation();
   }
 
   function updatePreviewNavigation() {
+    const lastIndex = state.preview.items.length - 1;
     dom.previewNavPrev.classList.toggle('disabled', state.preview.index <= 0);
-    dom.previewNavNext.classList.toggle('disabled', state.preview.index >= state.gallery.length - 1);
+    dom.previewNavNext.classList.toggle('disabled', state.preview.index >= lastIndex);
   }
 
   function prevImage() {
@@ -2681,7 +3030,7 @@
   }
 
   function nextImage() {
-    if (state.preview.index < state.gallery.length - 1) {
+    if (state.preview.index < state.preview.items.length - 1) {
       resetPreviewTransform();
       showPreviewImage(state.preview.index + 1);
     }
@@ -2730,20 +3079,14 @@
   }
 
   function handleGlobalKeydown(event) {
+    if (document.body.classList.contains('bg-only') && event.key === 'Escape') {
+      document.body.classList.remove('bg-only');
+      return;
+    }
     if (!dom.previewOverlay.classList.contains('open')) return;
     if (event.key === 'Escape') closePreview();
     if (!state.preview.urlMode && event.key === 'ArrowLeft') prevImage();
     if (!state.preview.urlMode && event.key === 'ArrowRight') nextImage();
-  }
-
-  function initGuideBox() {
-    if (!dom.guideBox || !dom.closeGuide) return;
-    const hasShown = localStorage.getItem(STORAGE_KEYS.guideShown);
-    dom.guideBox.hidden = Boolean(hasShown);
-    dom.closeGuide.addEventListener('click', () => {
-      dom.guideBox.hidden = true;
-      localStorage.setItem(STORAGE_KEYS.guideShown, 'true');
-    });
   }
 
   function createParticles() {

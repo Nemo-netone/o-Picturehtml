@@ -27,6 +27,7 @@
 - 当前配置事实源是 `state.activeApiId`。
 - 展馆事实源是 `state.gallery`。
 - 参考图片只存在内存，不写 localStorage。
+- 自定义背景图事实源是 `state.backgroundImage`，只保存压缩后的 data URL。
 
 ## 4. UI 约束
 

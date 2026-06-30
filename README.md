@@ -37,8 +37,12 @@
 ├── assets/
 │   ├── css/app.css                 # 视觉、布局、响应式、动效
 │   └── js/app.js                   # API 配置、生成、展馆、导入导出、诊断
+├── functions/                      # Cloudflare Pages Functions 部署入口
+│   ├── __picture_media.js           # 图片资源代理
+│   └── v1/[[path]].js               # OpenAI-compatible /v1/* 代理
 ├── cloudbase-app/                  # CloudBase 静态托管发布副本，不含密钥
 │   ├── index.html
+│   ├── functions/
 │   └── assets/
 │       ├── css/app.css
 │       └── js/app.js
@@ -59,12 +63,12 @@
 
 - API 配置管理：新增、编辑、删除、启用、模型拉取。
 - 文生图：调用 OpenAI-compatible `/v1/responses`，使用 `image_generation` 工具。
-- 图生图：上传参考图片后自动进入单张图生图模式，并压缩参考图。
-- 批量生成：支持 1/3/5/10/20/50 张，逐张生成、进度统计、取消。
+- 批量生成：支持 1/3/5/10/20/50 张，逐张生成、进度统计、取消；第 1 张使用原提示词，第 2 张起构造不同镜头、氛围、色彩和风格的多维增强提示词。
 - 提示词历史：本地保存、复用、置顶、删除。
-- 图片展馆：IndexedDB 保存生成记录，支持卡牌/普通模式、排序、分组、筛选、预览。
+- 图片展馆：IndexedDB 保存生成记录，支持卡牌/普通模式、排序、分组、筛选、预览，提示词默认折叠。
+- 背景展示：默认保留原背景图，支持顶部上传自定义背景；页面不再叠加全局暗遮罩，双击空白处可隐藏 UI 只看背景原图。
 - 数据管理：导出/导入全部数据、批量下载图片、清空数据、自动下载开关。
-- 网络诊断：快速检测和完整诊断 Base URL、模型接口、延迟与 CORS 风险。
+- 网络状态：底部轻量显示在线状态和延迟。
 
 ## 已修复的旧原型问题
 
@@ -152,6 +156,20 @@ tcb hosting deploy .\cloudbase-app -e <你的环境ID>
 ```
 
 安全边界：`cloudbase-app/` 也不得写入 API Key、token、Cookie 或其它密钥。
+
+## Cloudflare Pages 发布
+
+Cloudflare Pages 项目名固定为 `o-picturehtml`，生产分支固定为 `main`，稳定访问域名为：
+
+```text
+https://o-picturehtml.pages.dev
+```
+
+部署目录由 `wrangler.toml` 指定为 `cloudbase-app/`。根目录 `functions/` 是 Wrangler Pages 识别 Functions 的入口；如果更新代理函数，需要同步根目录 `functions/` 和 `cloudbase-app/functions/`。
+
+```powershell
+wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main
+```
 
 ## PR 与贡献规则
 
