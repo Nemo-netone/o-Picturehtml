@@ -4973,6 +4973,7 @@
 
     // ========== 生成数量选择 ==========
     let selectedGenCount = 1;
+    const GENERATION_DELAY_MS = 5000;
 
     // 初始化数量选择按钮
     document.querySelectorAll('.gen-count-btn').forEach(btn => {
@@ -7739,8 +7740,8 @@
 
             // 添加延迟，避免请求过快（除了最后一张）
             if (i < genCount - 1 && !shouldCancelGeneration) {
-              appendEvent('event', '⏳ 等待 500ms 后继续...');
-              await new Promise(resolve => setTimeout(resolve, 500));
+              appendEvent('event', '⏳ 等待 5 秒后继续...');
+              await sleep(GENERATION_DELAY_MS);
             }
 
           } catch (err) {
@@ -7755,7 +7756,8 @@
 
             // 失败后也等待一下再继续
             if (i < genCount - 1 && !shouldCancelGeneration) {
-              await new Promise(resolve => setTimeout(resolve, 500));
+              appendEvent('event', '⏳ 等待 5 秒后继续...');
+              await sleep(GENERATION_DELAY_MS);
             }
           }
         }
