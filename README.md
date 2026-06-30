@@ -179,6 +179,7 @@ wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main
 | 日期 | 分支 | 结果 | 验证 |
 |------|------|------|------|
 | 2026-06-30 | `main` | `https://ef935115.o-picturehtml.pages.dev` 部署完成，稳定域名 `https://o-picturehtml.pages.dev` 可访问 | 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
+| 2026-06-30 | `main` | `https://5593919d.o-picturehtml.pages.dev` 部署完成，稳定域名 `https://o-picturehtml.pages.dev` 可访问 | 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
 
 ## PR 与贡献规则
 

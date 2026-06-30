@@ -114,6 +114,7 @@
 | 2026-06-30 | Playwright 本地页面交互 | 本地 `file://` 打开 `index.html`，切换画图/图库，检查 `clearImagesBtn` | 通过 | “清除所有图片”按钮存在且进入图库后可见；控制台错误 0；页面错误 0 |
 | 2026-06-30 | Playwright 清图保留配置 | 临时写入 1 条 IndexedDB 图片和本地配置后点击“清除所有图片” | 通过 | 图片记录从 1 变 0；API 配置、提示词历史、图片参数、自定义背景保持不变 |
 | 2026-06-30 | Playwright 图库懒渲染性能逻辑 | 临时写入 30 条 IndexedDB 图片，观察图库 DOM 数量 | 通过 | 画图页 `galleryGrid` 为 0、徽标显示 `(30)`；进入图库渲染 30 条；离开展馆后卸载为 0 |
+| 2026-06-30 | Cloudflare Pages 生产部署 | `wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main --commit-dirty=true` | 通过 | 新部署地址 `https://5593919d.o-picturehtml.pages.dev`；稳定域名 `https://o-picturehtml.pages.dev` 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 
