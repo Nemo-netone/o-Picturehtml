@@ -171,6 +171,14 @@ https://o-picturehtml.pages.dev
 wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main
 ```
 
+部署认证只允许通过 Cloudflare 控制台、Wrangler 登录态或当前 Shell 的 `CLOUDFLARE_API_TOKEN` 环境变量提供；不得把 Token、API Key、SecretId、SecretKey 写入仓库或文档。如果 Token 已出现在聊天记录、日志或截图中，部署完成后应在 Cloudflare 控制台轮换。
+
+最近一次生产部署记录：
+
+| 日期 | 分支 | 结果 | 验证 |
+|------|------|------|------|
+| 2026-06-30 | `main` | `https://ef935115.o-picturehtml.pages.dev` 部署完成，稳定域名 `https://o-picturehtml.pages.dev` 可访问 | 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
+
 ## PR 与贡献规则
 
 - 采用 `Onezzr/ssr` 文档驱动流程，代码变化后同步更新对应事实源文档。

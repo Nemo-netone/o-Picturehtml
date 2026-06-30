@@ -48,6 +48,7 @@
 | T10 展馆卡片隐私和布局优化 | `assets/js/app.js`、`assets/css/app.css`、`cloudbase-app/`、前端规格文档 | 提示词默认隐藏；卡片按钮、时间、标签不重叠；语法检查通过 |
 | T11 顶部更换背景功能 | `index.html`、`assets/js/app.js`、`assets/css/app.css`、`cloudbase-app/`、前端规格文档 | 顶部可上传背景图；背景持久化；可恢复默认；语法检查通过 |
 | T12 背景无遮挡和画图页精简 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端规格文档 | 删除网络状态大卡、参考图卡和快速开始指南；背景纯图模式铺满浏览器；画图区结果提示词默认隐藏；第 1 张保留原提示词，第 2 张起多维增强 |
+| T13 人物提示词增强、预览切图和功能区边框 | `assets/js/app.js`、`assets/css/app.css`、`index.html`、`cloudbase-app/`、`functions/`、部署文档 | 人物增强提示词多维变化；结果区和展馆预览按当前队列左右切换；功能块边框、留白和按钮可读性修复；Cloudflare 生产部署通过 |
 
 每次只改一个任务范围；跨任务时先在本文件新增拆分说明。
 
@@ -105,6 +106,8 @@
 | 2026-06-29 | 顶部更换背景功能 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、Playwright 上传/恢复检查 | 通过 | 背景图保存到 localStorage，支持恢复默认；无控制台错误 |
 | 2026-06-29 | 背景无遮挡和画图页精简 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js` | 待补充浏览器验收 | 删除网络状态大卡和参考图卡；默认背景保留原图且移除全局暗遮罩；双击空白进入纯背景模式；批量第 1 张原提示词，第 2 张起结构化增强 |
 | 2026-06-29 | 画图区结果提示词与背景铺满调整 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、源码残留 `rg`、临时 `python -m http.server` UTF-8 关键文本检查 | 通过 | 快速开始指南已从 HTML/JS/CSS 移除；纯背景模式使用 `cover` 铺满；画图区生成结果卡片新增默认隐藏的提示词面板；源目录与 `cloudbase-app/` 哈希一致 |
+| 2026-06-30 | 人物增强、预览切图和功能区边框 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、`node --check functions/v1/[[path]].js`、`node --check functions/__picture_media.js`、`git diff --check` | 通过 | 结果区使用当前生成队列预览；展馆使用当前筛选/排序后的可见队列预览；提示词区和生成功能块增加边框与留白；源目录与 `cloudbase-app/` 的 JS/CSS 哈希一致 |
+| 2026-06-30 | Cloudflare Pages 生产部署 | `wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main --commit-dirty=true` | 通过 | 新部署地址 `https://ef935115.o-picturehtml.pages.dev`；稳定域名 `https://o-picturehtml.pages.dev` 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 
