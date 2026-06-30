@@ -174,6 +174,10 @@ Accept: text/event-stream
 
 导入后会校验 `activeApiId` 是否存在于导入后的 `apiConfigs`。如果不存在，自动回退到第一项配置，避免当前配置显示和生成表单失配。
 
+“清除所有图片”只清空 IndexedDB `records` 和当前结果区 `currentResults`，不删除 localStorage 中的 API 配置、当前配置 ID、提示词历史、图片参数和自定义背景。
+
+“清空所有数据”才会同时清空 IndexedDB 和上方 localStorage keys，并恢复默认 API 配置。
+
 ## 8. ZIP 批量下载
 
 批量下载不依赖第三方 CDN。`app.js` 在浏览器内生成 ZIP：

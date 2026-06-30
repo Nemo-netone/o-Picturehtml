@@ -204,6 +204,11 @@
     promptHistory: [],
     gallery: [],
     currentResults: [],
+    currentPage: 'draw',
+    galleryDirty: false,
+    streamTextBuffer: '',
+    streamTextFlushPending: false,
+    streamTextVersion: 0,
     imageParams: {
       size: '1024x1024',
       quality: 'standard',
@@ -272,7 +277,7 @@
       showStatus('err', `展馆加载失败：${error.message}`);
     }
 
-    renderGalleryWithControls();
+    renderGalleryIfVisible();
     updateStorageInfo();
     repairRemoteGalleryRecords().catch((error) => {
       appendEvent('event', `图库旧记录修复失败：${error.message}`);
@@ -361,6 +366,7 @@
       exportAllDataBtn: byId('exportAllDataBtn'),
       importDataBtn: byId('importDataBtn'),
       downloadAllImagesBtn: byId('downloadAllImagesBtn'),
+      clearImagesBtn: byId('clearImagesBtn'),
       clearAllDataBtn: byId('clearAllDataBtn'),
       autoDownloadCheckbox: byId('autoDownloadCheckbox'),
       importFileInput: byId('importFileInput'),
@@ -490,6 +496,7 @@
     dom.importDataBtn?.addEventListener('click', () => dom.importFileInput?.click());
     dom.importFileInput?.addEventListener('change', importAllData);
     dom.downloadAllImagesBtn?.addEventListener('click', downloadAllImages);
+    dom.clearImagesBtn?.addEventListener('click', clearAllImages);
     dom.clearAllDataBtn?.addEventListener('click', clearAllData);
     dom.autoDownloadCheckbox?.addEventListener('change', () => {
       state.autoDownload = false;
@@ -549,15 +556,40 @@
     updateCurrentApiDisplay();
     renderPromptHistory();
     renderThumbnails();
-    renderGalleryWithControls();
+    renderGalleryIfVisible();
     updateStorageInfo();
   }
 
   function switchTab(page) {
+    state.currentPage = page;
     dom.topTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.page === page));
     dom.tabDraw?.classList.toggle('active', page === 'draw');
     dom.tabGallery?.classList.toggle('active', page === 'gallery');
     if (page === 'gallery') renderGalleryWithControls();
+    if (page !== 'gallery') releaseGalleryDom();
+  }
+
+  function renderGalleryIfVisible() {
+    if (state.currentPage === 'gallery') {
+      renderGalleryWithControls();
+      return;
+    }
+
+    state.galleryDirty = true;
+    updateGallerySummary();
+  }
+
+  function updateGallerySummary() {
+    if (dom.topGalleryBadge) {
+      dom.topGalleryBadge.textContent = state.gallery.length ? `(${state.gallery.length})` : '';
+    }
+    updateGalleryStats();
+  }
+
+  function releaseGalleryDom() {
+    if (!dom.galleryGrid?.childElementCount) return;
+    dom.galleryGrid.innerHTML = '';
+    state.galleryDirty = true;
   }
 
   function handleScroll() {
@@ -1362,7 +1394,7 @@
     }
 
     if (repaired > 0) {
-      renderGalleryWithControls();
+      renderGalleryIfVisible();
       updateStorageInfo();
       showStatus('done', `已修复 ${repaired} 条旧图片记录，图片已转存到浏览器`, 5000);
     }
@@ -1426,7 +1458,7 @@
     };
     await saveRecord(record);
     state.gallery.unshift(record);
-    renderGalleryWithControls();
+    renderGalleryIfVisible();
     updateStorageInfo();
     return record;
   }
@@ -1436,7 +1468,7 @@
     try {
       await deleteRecord(id);
       state.gallery = state.gallery.filter((item) => item.id !== id);
-      renderGalleryWithControls();
+      renderGalleryIfVisible();
       updateStorageInfo();
       showStatus('info', '图片记录已删除');
     } catch (error) {
@@ -1446,6 +1478,7 @@
 
   function renderGalleryWithControls() {
     if (!dom.galleryGrid) return;
+    state.galleryDirty = false;
     const filtered = filterByTags(sortGallery([...state.gallery], state.galleryView.sortMode));
     dom.galleryGrid.innerHTML = '';
 
@@ -1721,9 +1754,9 @@
   function updateGalleryStats() {
     const text2imgCount = state.gallery.filter((item) => item.mode !== 2).length;
     const img2imgCount = state.gallery.filter((item) => item.mode === 2).length;
-    dom.text2imgCount.textContent = `${text2imgCount} 张`;
-    dom.img2imgCount.textContent = `${img2imgCount} 张`;
-    dom.totalCount.textContent = `${state.gallery.length} 张`;
+    if (dom.text2imgCount) dom.text2imgCount.textContent = `${text2imgCount} 张`;
+    if (dom.img2imgCount) dom.img2imgCount.textContent = `${img2imgCount} 张`;
+    if (dom.totalCount) dom.totalCount.textContent = `${state.gallery.length} 张`;
   }
 
   function updateStorageInfo() {
@@ -1731,6 +1764,7 @@
     dom.storageImageCount.textContent = `${state.gallery.length} 张`;
     dom.storageApiCount.textContent = `${state.apiConfigs.length} 个`;
     dom.storagePromptCount.textContent = `${state.promptHistory.length} 条`;
+    if (dom.clearImagesBtn) dom.clearImagesBtn.disabled = state.gallery.length === 0;
     const totalBytes = state.gallery.reduce((total, item) => {
       const imageSize = item.dataUrl ? item.dataUrl.length * 0.75 : 0;
       const refSize = item.refDataUrl ? item.refDataUrl.length * 0.75 : 0;
@@ -1740,6 +1774,9 @@
   }
 
   function resetCurrentRun() {
+    state.streamTextBuffer = '';
+    state.streamTextFlushPending = false;
+    state.streamTextVersion += 1;
     if (dom.eventLog) {
       dom.eventLog.innerHTML = '';
       dom.eventLog.classList.remove('active');
@@ -2365,7 +2402,9 @@
     try {
       const resolved = await resolveImageResult(result.imageSource, result.mediaAuth);
       await addResultCard(label, imageName, prompt, resolved.dataUrl, resolved.blob);
+      await yieldToBrowser();
       await addToGallery(resolved.dataUrl, prompt, mode, refDataUrl);
+      await yieldToBrowser();
       return resolved;
     } catch (error) {
       throw new Error(`${label} 图片已生成，但没能转存到浏览器本地图库：${error.message}`);
@@ -2478,8 +2517,24 @@
   function appendTextChunk(text) {
     if (!dom.textStream) return;
     dom.textStream.classList.add('active');
-    dom.textStream.textContent += text;
-    dom.statTextLen.textContent = `文本: ${dom.textStream.textContent.length} 字`;
+    state.streamTextBuffer += text;
+    if (state.streamTextFlushPending) return;
+
+    state.streamTextFlushPending = true;
+    const flushVersion = state.streamTextVersion;
+    const scheduleFrame = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (callback) => window.setTimeout(callback, 16);
+
+    scheduleFrame(() => {
+      if (flushVersion !== state.streamTextVersion) return;
+      const pendingText = state.streamTextBuffer;
+      state.streamTextBuffer = '';
+      state.streamTextFlushPending = false;
+      if (!pendingText || !dom.textStream) return;
+      dom.textStream.textContent += pendingText;
+      if (dom.statTextLen) dom.statTextLen.textContent = `文本: ${dom.textStream.textContent.length} 字`;
+    });
   }
 
   function downloadImage(dataUrl, filename) {
@@ -2590,6 +2645,16 @@
 
   function sleep(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function yieldToBrowser() {
+    return new Promise((resolve) => {
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => resolve());
+        return;
+      }
+      window.setTimeout(resolve, 16);
+    });
   }
 
   function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
@@ -2953,6 +3018,34 @@
       showStatus('done', '所有数据已清空');
     } catch (error) {
       showStatus('err', `清空失败：${error.message}`);
+    }
+  }
+
+  async function clearAllImages() {
+    if (state.generation.active) {
+      showStatus('info', '正在生成中，请先取消或等待生成结束后再清除图片');
+      return;
+    }
+    if (!state.gallery.length) {
+      showStatus('info', '图库里没有可清除的图片');
+      return;
+    }
+
+    const count = state.gallery.length;
+    if (!confirm(`确定清除全部 ${count} 张图片吗？\n\n只会删除浏览器图库和当前结果区图片；API Key、提示词历史、图片参数和更换的背景都会保留。`)) return;
+
+    try {
+      state.gallery = [];
+      state.currentResults = [];
+      await replaceGalleryRecords([]);
+      if (dom.resultGrid) dom.resultGrid.innerHTML = '';
+      dom.resultArea?.classList.remove('active');
+      if (dom.previewOverlay?.classList.contains('open')) closePreview();
+      renderGalleryIfVisible();
+      updateStorageInfo();
+      showStatus('done', `已清除 ${count} 张图片，API 配置、提示词历史和背景已保留`);
+    } catch (error) {
+      showStatus('err', `清除图片失败：${error.message}`);
     }
   }
 

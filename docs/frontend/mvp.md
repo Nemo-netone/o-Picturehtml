@@ -49,6 +49,7 @@
 | T11 顶部更换背景功能 | `index.html`、`assets/js/app.js`、`assets/css/app.css`、`cloudbase-app/`、前端规格文档 | 顶部可上传背景图；背景持久化；可恢复默认；语法检查通过 |
 | T12 背景无遮挡和画图页精简 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端规格文档 | 删除网络状态大卡、参考图卡和快速开始指南；背景纯图模式铺满浏览器；画图区结果提示词默认隐藏；第 1 张保留原提示词，第 2 张起多维增强 |
 | T13 人物提示词增强、预览切图和功能区边框 | `assets/js/app.js`、`assets/css/app.css`、`index.html`、`cloudbase-app/`、`functions/`、部署文档 | 人物增强提示词多维变化；结果区和展馆预览按当前队列左右切换；功能块边框、留白和按钮可读性修复；Cloudflare 生产部署通过 |
+| T14 数据管理清图和生成性能优化 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、README、前端规格文档 | 新增“清除所有图片”且保留 API 配置、提示词历史、图片参数和背景；生成时不反复重建隐藏图库；流式文本按帧批量刷新 |
 
 每次只改一个任务范围；跨任务时先在本文件新增拆分说明。
 
@@ -83,6 +84,7 @@
 - [ ] 未填必要字段时点击生成会被阻止。
 - [ ] 生成成功后图片进入结果区和展馆。
 - [ ] 导出所有数据能下载 JSON。
+- [ ] 清除所有图片只删除 IndexedDB 图库和当前结果区，保留 API 配置、提示词历史、图片参数和背景。
 - [ ] 清空数据后页面计数归零并恢复默认配置。
 - [ ] 运行 `.\scripts\start-local.ps1` 后浏览器能打开本地页面。
 
@@ -108,6 +110,10 @@
 | 2026-06-29 | 画图区结果提示词与背景铺满调整 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、源码残留 `rg`、临时 `python -m http.server` UTF-8 关键文本检查 | 通过 | 快速开始指南已从 HTML/JS/CSS 移除；纯背景模式使用 `cover` 铺满；画图区生成结果卡片新增默认隐藏的提示词面板；源目录与 `cloudbase-app/` 哈希一致 |
 | 2026-06-30 | 人物增强、预览切图和功能区边框 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、`node --check functions/v1/[[path]].js`、`node --check functions/__picture_media.js`、`git diff --check` | 通过 | 结果区使用当前生成队列预览；展馆使用当前筛选/排序后的可见队列预览；提示词区和生成功能块增加边框与留白；源目录与 `cloudbase-app/` 的 JS/CSS 哈希一致 |
 | 2026-06-30 | Cloudflare Pages 生产部署 | `wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main --commit-dirty=true` | 通过 | 新部署地址 `https://ef935115.o-picturehtml.pages.dev`；稳定域名 `https://o-picturehtml.pages.dev` 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
+| 2026-06-30 | 数据管理清图和生成性能优化 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、`git diff --check` | 通过 | 源目录与 `cloudbase-app/` 的 JS/CSS 哈希一致；生成结果入库后让出浏览器帧，画图页不渲染隐藏图库 |
+| 2026-06-30 | Playwright 本地页面交互 | 本地 `file://` 打开 `index.html`，切换画图/图库，检查 `clearImagesBtn` | 通过 | “清除所有图片”按钮存在且进入图库后可见；控制台错误 0；页面错误 0 |
+| 2026-06-30 | Playwright 清图保留配置 | 临时写入 1 条 IndexedDB 图片和本地配置后点击“清除所有图片” | 通过 | 图片记录从 1 变 0；API 配置、提示词历史、图片参数、自定义背景保持不变 |
+| 2026-06-30 | Playwright 图库懒渲染性能逻辑 | 临时写入 30 条 IndexedDB 图片，观察图库 DOM 数量 | 通过 | 画图页 `galleryGrid` 为 0、徽标显示 `(30)`；进入图库渲染 30 条；离开展馆后卸载为 0 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 

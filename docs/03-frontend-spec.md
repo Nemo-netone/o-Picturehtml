@@ -39,7 +39,7 @@
 | 结果区 | `resultGrid` | 当前批次结果、提示词默认隐藏查看 |
 | 展馆 | `galleryGrid` | 历史记录、预览、提示词折叠查看、删除 |
 | 预览遮罩 | `previewOverlay` | 图片查看、缩放、拖拽、键盘切换 |
-| 数据管理 | `exportAllDataBtn` 等 | 导出、导入、批量下载、清空 |
+| 数据管理 | `exportAllDataBtn` 等 | 导出、导入、批量下载、清除所有图片、清空 |
 
 ## 4. 状态模型
 
@@ -52,6 +52,8 @@ state = {
   refImages: [],
   promptHistory: [],
   gallery: [],
+  currentPage: 'draw',
+  galleryDirty: false,
   imageParams: { size, quality, style },
   backgroundImage: '',
   generation: { active, cancelRequested, total, done, success, failed },
@@ -72,6 +74,8 @@ state = {
 - 画图区生成结果卡片默认隐藏提示词，只展示图片和操作；点击“查看提示词”后展开提示词内容。
 - 生成失败不清空已成功图片；批量生成继续处理下一张。
 - 展馆为空时显示空态；有记录时显示计数和筛选结果。
+- 画图页不全量渲染隐藏展馆网格；图库变化时只更新顶部计数、统计和存储信息，进入展馆页再渲染完整网格。
+- 离开展馆页时卸载隐藏展馆网格中的图片节点，避免大量 base64 图片继续占用主线程和解码内存。
 - 展馆卡片默认隐藏提示词，只展示图片、标签、时间和操作；点击“查看提示词”后才展开提示词内容。
 - 预览传入 URL 时隐藏上一张/下一张；传入索引时启用键盘切换。
 
@@ -93,7 +97,8 @@ state = {
 
 1. 导出：把 gallery、apiConfigs、promptHistory、imageParams、autoDownload 打包为 JSON。
 2. 导入：校验 JSON 后覆盖本地数据，并重新渲染页面。
-3. 清空：二次确认后清空 IndexedDB 和 localStorage。
+3. 清除所有图片：只清空 IndexedDB 图库和当前结果区，不删除 API 配置、提示词历史、图片参数和自定义背景。
+4. 清空：二次确认后清空 IndexedDB 和 localStorage。
 
 ### 6.4 更换背景
 
