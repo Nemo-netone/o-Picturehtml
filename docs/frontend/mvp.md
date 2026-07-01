@@ -50,6 +50,10 @@
 | T12 背景无遮挡和画图页精简 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端规格文档 | 删除网络状态大卡、参考图卡和快速开始指南；背景纯图模式铺满浏览器；画图区结果提示词默认隐藏；第 1 张保留原提示词，第 2 张起多维增强 |
 | T13 人物提示词增强、预览切图和功能区边框 | `assets/js/app.js`、`assets/css/app.css`、`index.html`、`cloudbase-app/`、`functions/`、部署文档 | 人物增强提示词多维变化；结果区和展馆预览按当前队列左右切换；功能块边框、留白和按钮可读性修复；Cloudflare 生产部署通过 |
 | T14 数据管理清图和生成性能优化 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、README、前端规格文档 | 新增“清除所有图片”且保留 API 配置、提示词历史、图片参数和背景；生成时不反复重建隐藏图库；流式文本按帧批量刷新 |
+| T15 画图页默认内容精简 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端和接口文档 | 删除画图页标题介绍块；移除 `OpenAI 官方` 和 `自定义 API（示例）` 默认配置，并迁移清理旧本地数据 |
+| T16 背景自适应主题、框内线稿和真实人像提示词 | `assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端和接口文档 | 更换背景后界面主题随图取色；玻璃框内部增加低透明网格和花枝线稿；增强提示词转向真实成年亚洲女性、惊艳气质、宿命感和电影感 |
+| T17 幻想风景和真实脸提示词强化 | `assets/js/app.js`、`cloudbase-app/assets/js/app.js`、前端规格文档 | 新增背景风景随机轴；提示词强调真实人像脸和可信皮肤，同时允许真实摄影、电影剧照、油画、厚涂插画、高级插画封面、东方奇幻、科幻或动画电影感 |
+| T18 可控随机风格、精选评分和对比模式升级 | `index.html`、`assets/css/app.css`、`assets/js/app.js`、`cloudbase-app/`、前端和接口文档 | 风格芯片选择器、提示词配方库、星级评分、只看精选、masonry 瀑布流、2-6 张横向对比、设为背景和再生变体可用 |
 
 每次只改一个任务范围；跨任务时先在本文件新增拆分说明。
 
@@ -84,6 +88,12 @@
 - [ ] 未填必要字段时点击生成会被阻止。
 - [ ] 生成成功后图片进入结果区和展馆。
 - [ ] 导出所有数据能下载 JSON。
+- [ ] 风格芯片可选择/清空/全选，并影响后续增强提示词。
+- [ ] 提示词配方能保存、载入和删除。
+- [ ] 展馆可在等宽网格和瀑布流间切换。
+- [ ] 展馆图片可评分；4 星以上或最佳能被“只看精选”筛出。
+- [ ] 对比模式可选择 2-6 张，并排显示图片和各自提示词。
+- [ ] 展馆图片可设为背景，并可一键再生 3 张变体。
 - [ ] 清除所有图片只删除 IndexedDB 图库和当前结果区，保留 API 配置、提示词历史、图片参数和背景。
 - [ ] 清空数据后页面计数归零并恢复默认配置。
 - [ ] 运行 `.\scripts\start-local.ps1` 后浏览器能打开本地页面。
@@ -115,6 +125,10 @@
 | 2026-06-30 | Playwright 清图保留配置 | 临时写入 1 条 IndexedDB 图片和本地配置后点击“清除所有图片” | 通过 | 图片记录从 1 变 0；API 配置、提示词历史、图片参数、自定义背景保持不变 |
 | 2026-06-30 | Playwright 图库懒渲染性能逻辑 | 临时写入 30 条 IndexedDB 图片，观察图库 DOM 数量 | 通过 | 画图页 `galleryGrid` 为 0、徽标显示 `(30)`；进入图库渲染 30 条；离开展馆后卸载为 0 |
 | 2026-06-30 | Cloudflare Pages 生产部署 | `wrangler pages deploy cloudbase-app --project-name o-picturehtml --branch main --commit-dirty=true` | 通过 | 新部署地址 `https://5593919d.o-picturehtml.pages.dev`；稳定域名 `https://o-picturehtml.pages.dev` 首页 `HEAD` 返回 200；`/v1/models` 与 `/__picture_media` 的 `OPTIONS` 返回 204 |
+| 2026-06-30 | 画图页默认内容精简 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、源码残留 `rg`、`git diff --check` | 通过 | 删除画图页标题介绍块；默认 API 列表不再生成 `OpenAI 官方` 和 `自定义 API（示例）`，旧本地/导入数据会被过滤 |
+| 2026-06-30 | 背景自适应主题、框内线稿和真实人像提示词 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、`git diff --check`、源目录和 `cloudbase-app/` 哈希对照 | 通过 | 背景主题运行时取色；框内线稿使用 CSS 伪元素；增强提示词不固定野外背景，强调真实人物、惊艳、宿命感和电影感 |
+| 2026-06-30 | 幻想风景和真实脸提示词强化 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、`git diff --check`、源目录和 `cloudbase-app/` 哈希对照 | 通过 | 新增 `background` 提示词轴；脸部保持真实人像质感，整体允许真实摄影、电影剧照、油画、厚涂插画、高级插画封面、东方奇幻、科幻和动画电影感 |
+| 2026-07-01 | 可控随机风格、精选评分和对比模式升级 | `node --check assets/js/app.js`、`node --check cloudbase-app/assets/js/app.js`、Playwright `file://` smoke | 通过 | 风格芯片、配方库、假图库、星级精选、瀑布流、2 张对比提示词和设背景通过；真实 API 生成未在本次 smoke 中调用 |
 
 浏览器交互和真实外部 API 仍按上方手动验收清单执行；未提供真实 Base URL、API Key、Model 时，不勾选生成链路相关项。
 

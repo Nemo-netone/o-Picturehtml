@@ -12,16 +12,16 @@
   ├─ 图片展馆
   ├─ 更换背景
   │   ├─ 主卡片
-  │   │   ├─ 标题
   │   │   ├─ API 配置管理
   │   │   ├─ 当前配置
-  │   │   ├─ 参数 / 提示词 / 历史
+  │   │   ├─ 参数 / 提示词 / 风格芯片 / 配方库 / 历史
   │   │   ├─ 生成数量 / 开始生成 / 进度
   │   │   └─ 结果网格 / 状态条
   │   └─ 实时事件流
   └─ 图片展馆
       ├─ 数据管理中心
-      ├─ 展示控制
+      ├─ 展示控制 / 精选筛选 / 对比精选
+      ├─ 对比托盘
       └─ 展馆网格
 ```
 
@@ -30,14 +30,14 @@
 | 组件 | DOM | 职责 |
 |------|-----|------|
 | 顶部 Tab | `.top-tab` | 切换画图和展馆 |
-| 背景图设置 | `backgroundFileInput`、`changeBackgroundBtn`、`resetBackgroundBtn` | 上传自定义背景图、保存到本地、恢复默认背景 |
+| 背景图设置 | `backgroundFileInput`、`changeBackgroundBtn`、`resetBackgroundBtn` | 上传自定义背景图、保存到本地、恢复默认背景，并从背景图运行时派生界面主题色 |
 | API 管理器 | `apiConfigList`、`apiManagerPanel` | 配置 CRUD、模型拉取、启用 |
 | 当前配置 | `currentApiName` | 显示生成实际使用的配置 |
 | 网络状态条 | `networkStatusValue`、`networkPing` | 底部轻量显示在线状态和延迟 |
-| 提示词区域 | `prompt`、`promptHistoryPanel` | 输入、示例、历史 |
+| 提示词区域 | `prompt`、`promptHistoryPanel`、`styleChipList`、`recipeList` | 输入、示例、历史、可控风格芯片、提示词配方复用 |
 | 生成控制 | `genBtn`、`genProgress` | 批量生成、进度、取消 |
 | 结果区 | `resultGrid` | 当前批次结果、提示词默认隐藏查看 |
-| 展馆 | `galleryGrid` | 历史记录、预览、提示词折叠查看、删除 |
+| 展馆 | `galleryGrid`、`compareTray` | 历史记录、预览、评分、精选、瀑布流、对比、提示词折叠查看、设背景、再生变体、删除 |
 | 预览遮罩 | `previewOverlay` | 图片查看、缩放、拖拽、键盘切换 |
 | 数据管理 | `exportAllDataBtn` 等 | 导出、导入、批量下载、清除所有图片、清空 |
 
@@ -49,6 +49,8 @@ state = {
   activeApiId: null,
   fetchedModels: [],
   selectedGenCount: 1,
+  selectedStyleChipIds: Set,
+  promptRecipes: [],
   refImages: [],
   promptHistory: [],
   gallery: [],
@@ -57,26 +59,35 @@ state = {
   imageParams: { size, quality, style },
   backgroundImage: '',
   generation: { active, cancelRequested, total, done, success, failed },
-  galleryView: { displayMode, sortMode, groupByMode, groupByContent, activeFilters },
+  galleryView: { displayMode, layout, sortMode, groupByMode, groupByContent, showFavoritesOnly, activeFilters, compareMode, compareSelectedIds, compareBestId },
   preview: { open, index, scale, panX, panY }
 }
 ```
 
 ## 5. 渲染规则
 
-- 没有 API 配置时创建默认示例配置，但 API Key 为空。
+- 没有 API 配置时只创建 `Picture NewAPI` 默认配置；旧的 `OpenAI 官方` 和 `自定义 API（示例）` 默认项会在加载和导入时移除。
 - 默认背景继续使用 `assets/images/japanese-garden-bg.png`；不叠加全局暗遮罩，尽量保留背景原图色彩。
 - 自定义背景图保存在浏览器 localStorage，页面加载时应用；恢复默认会删除对应本地配置。
+- 自定义背景图加载后，前端从图片像素中采样主色，并动态写入 CSS 主题变量，让按钮、Tab、玻璃面板、文字、线条和阴影跟随背景色调变化；该主题不另存 localStorage。
+- 主要玻璃面板和功能块内部叠加低透明细网格、花瓣和枝线稿，线稿属于框内纹理，不替换页面背景，也不应压过文字和操作控件。
 - 双击页面空白处进入纯背景展示模式，隐藏所有 UI；再次双击或按 ESC 恢复。
 - 启用配置后，隐藏的 `baseUrl/apiKey/model` 表单同步更新，生成逻辑只读这里。
 - 当前画图页不再显示参考图片上传入口；如历史内存中存在参考图，生成逻辑仍按图生图兼容处理。
-- 批量生成第 1 张使用用户原始提示词；第 2 张起构造结构化增强提示词，变化镜头、景别、光线、氛围、色彩、场景调度、风格和细节要求。
+- 风格芯片把真实摄影、电影剧照、油画厚涂、东方奇幻、科幻未来、高级插画、动画电影感、时装大片、复古胶片、梦幻风景等隐藏随机轴显性化。用户可多选；不选时仍从全部风格池随机。
+- 批量生成未选风格芯片时，第 1 张使用用户原始提示词，第 2 张起构造结构化增强提示词；选中风格芯片时，第 1 张也按选中风格增强，保证单张生成能被风格控制。增强重点转向真实成年亚洲女性、惊艳长相、一眼万年、正式穿着、宿命感和电影感。人物脸部和眼神必须保持真实人像质感，整体展示风格可以是真实摄影、电影剧照、油画、厚涂插画、高级插画封面、动画电影感、东方奇幻感、科幻感或史诗感；背景风景、服装、发饰、建筑、光效和氛围可以更梦幻，但不能抢走脸和眼神。
+- 提示词配方库最多保留 20 条，保存当前提示词、已选风格芯片和图片参数；点击“使用”会恢复提示词、风格选择和参数。
 - 画图区生成结果卡片默认隐藏提示词，只展示图片和操作；点击“查看提示词”后展开提示词内容。
 - 生成失败不清空已成功图片；批量生成继续处理下一张。
 - 展馆为空时显示空态；有记录时显示计数和筛选结果。
 - 画图页不全量渲染隐藏展馆网格；图库变化时只更新顶部计数、统计和存储信息，进入展馆页再渲染完整网格。
 - 离开展馆页时卸载隐藏展馆网格中的图片节点，避免大量 base64 图片继续占用主线程和解码内存。
-- 展馆卡片默认隐藏提示词，只展示图片、标签、时间和操作；点击“查看提示词”后才展开提示词内容。
+- 展馆卡片默认隐藏提示词，只展示图片、标签、风格芯片、时间、评分和操作；点击“查看提示词”后才展开提示词内容。
+- 展馆支持等宽网格和 masonry 瀑布流；人像长短比例不一致时优先使用瀑布流提高筛选效率。
+- 展馆评分为 0-5 星；4 星及以上或“最佳”记录会进入“只看精选”筛选。“设为最佳”会持久化为 `favoriteRank: "best"` 并自动提升到 5 星。
+- 对比模式限制选择 2-6 张图片。对比托盘横向展示图片、评分、风格标签和各自提示词，并支持设最佳、设背景、再生变体和移出。
+- “设为背景”会把当前图片压缩后写入自定义背景存储，并继续触发运行时取色主题。
+- “再生变体”会提取记录的源提示词和风格芯片，切回画图页，生成 3 张同主题变化版本。
 - 预览传入 URL 时隐藏上一张/下一张；传入索引时启用键盘切换。
 
 ## 6. 交互流程
@@ -84,9 +95,9 @@ state = {
 ### 6.1 文生图
 
 1. 用户选择 API 配置。
-2. 输入提示词，选择尺寸、质量、风格、数量。
+2. 输入提示词，选择尺寸、质量、生成风格、风格芯片、数量，也可载入提示词配方。
 3. 点击开始生成。
-4. 页面逐张调用外部 API；第 1 张直接使用原提示词，第 2 张起使用多维增强版提示词。
+4. 页面逐张调用外部 API；按风格芯片选择决定是否从第 1 张开始增强，后续图片使用多维增强版提示词。
 5. 成功图片进入结果区和展馆。
 
 ### 6.2 图生图
@@ -95,7 +106,7 @@ state = {
 
 ### 6.3 数据管理
 
-1. 导出：把 gallery、apiConfigs、promptHistory、imageParams、autoDownload 打包为 JSON。
+1. 导出：把 gallery、apiConfigs、promptHistory、promptRecipes、selectedStyleChipIds、imageParams、galleryLayout、galleryFavoritesOnly、backgroundImage、autoDownload 打包为 JSON。
 2. 导入：校验 JSON 后覆盖本地数据，并重新渲染页面。
 3. 清除所有图片：只清空 IndexedDB 图库和当前结果区，不删除 API 配置、提示词历史、图片参数和自定义背景。
 4. 清空：二次确认后清空 IndexedDB 和 localStorage。
@@ -106,8 +117,9 @@ state = {
 2. 选择本地图片。
 3. 前端压缩图片并保存到 localStorage。
 4. `body.custom-bg` 使用该图片作为页面背景。
-5. 点击“恢复默认”删除自定义背景配置。
-6. 双击空白区域可以只展示背景图；该模式不显示玻璃面板和底部网络状态。
+5. 前端异步分析背景图色彩，更新运行时主题变量；如果取色失败，则恢复默认主题。
+6. 点击“恢复默认”删除自定义背景配置，并清除自适应主题变量。
+7. 双击空白区域可以只展示背景图；该模式不显示玻璃面板和底部网络状态。
 
 ## 7. 边界体验
 

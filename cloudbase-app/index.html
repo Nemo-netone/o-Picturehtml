@@ -28,12 +28,6 @@
     <section id="tabDraw" class="tab-page active" aria-label="画图页">
       <div class="draw-layout">
         <section class="card main-card">
-          <header class="hero-copy">
-            <p class="eyebrow">OpenAI-compatible image generation</p>
-            <h1>AI 图片生成</h1>
-            <p class="sub">纯前端版：浏览器直连上游 API，支持文生图、图生图、批量生成和本地展馆。</p>
-          </header>
-
           <section class="panel">
             <div class="panel-title-row">
               <label class="panel-title">API 配置管理</label>
@@ -49,7 +43,7 @@
                 <div class="form-row single">
                   <div>
                     <label for="newConfigName">配置名称</label>
-                    <input id="newConfigName" placeholder="例如：OpenAI 官方" autocomplete="off" />
+                    <input id="newConfigName" placeholder="例如：我的图片 API" autocomplete="off" />
                   </div>
                 </div>
                 <div class="form-row">
@@ -170,6 +164,18 @@
               </div>
             </div>
 
+            <section class="style-chip-panel">
+              <div class="panel-title-row">
+                <label>风格芯片</label>
+                <div class="chip-tools">
+                  <button id="styleChipAllBtn" type="button">全选</button>
+                  <button id="styleChipClearBtn" type="button">清空</button>
+                </div>
+              </div>
+              <div id="styleChipList" class="style-chip-list"></div>
+              <p class="chip-hint">可多选；不选时会在全部风格里随机。</p>
+            </section>
+
             <button id="promptHistoryBtn" type="button" class="history-btn">
               提示词历史 <span id="promptHistoryCount" class="history-badge"></span>
             </button>
@@ -177,6 +183,15 @@
               <div id="promptHistoryList" class="prompt-history-list"></div>
               <div id="promptHistoryEmpty" class="prompt-history-empty">暂无历史记录</div>
             </div>
+
+            <section class="recipe-panel">
+              <div class="panel-title-row">
+                <label>提示词配方库</label>
+                <button id="saveRecipeBtn" type="button">保存当前配方</button>
+              </div>
+              <div id="recipeList" class="recipe-list"></div>
+              <div id="recipeEmpty" class="recipe-empty">暂无配方</div>
+            </section>
           </section>
 
           <section class="gen-control-panel">
@@ -300,6 +315,19 @@
               <label><input type="checkbox" id="groupByContent" /> 按内容特征分组</label>
             </div>
           </section>
+          <section class="panel-section">
+            <label>展馆布局</label>
+            <div class="radio-group">
+              <label><input type="radio" name="galleryLayout" value="grid" checked /> 等宽网格</label>
+              <label><input type="radio" name="galleryLayout" value="masonry" /> 瀑布流</label>
+            </div>
+          </section>
+          <section class="panel-section">
+            <label>精选筛选</label>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="showFavoritesOnly" /> 只看精选（4 星以上或最佳）</label>
+            </div>
+          </section>
           <section class="panel-section stats">
             <label>统计信息</label>
             <div><span>文生图：</span><strong id="text2imgCount">0</strong></div>
@@ -317,10 +345,27 @@
               <button class="tag-filter" type="button" data-tag="asian">亚洲</button>
             </div>
           </section>
+          <section class="panel-section compare-panel">
+            <label>对比精选</label>
+            <button id="compareModeBtn" class="compare-mode-btn" type="button" aria-pressed="false">开启对比模式</button>
+            <div class="compare-mini">
+              <span id="compareSelectionCount">已选 0 / 6</span>
+              <button id="openCompareBtn" type="button" disabled>打开对比</button>
+              <button id="clearCompareBtn" type="button" disabled>清空</button>
+            </div>
+          </section>
         </aside>
 
         <section class="gallery-card">
-          <h2>生成记录展馆 <span id="galleryCount" class="gallery-count"></span></h2>
+          <div class="gallery-card-header">
+            <h2>生成记录展馆 <span id="galleryCount" class="gallery-count"></span></h2>
+            <div id="compareToolbar" class="compare-toolbar" hidden>
+              <span id="compareToolbarCount">选择 2-6 张进行横向对比</span>
+              <button id="compareToolbarOpenBtn" type="button" disabled>对比</button>
+              <button id="compareToolbarClearBtn" type="button">清空</button>
+            </div>
+          </div>
+          <section id="compareTray" class="compare-tray" hidden aria-label="图片横向对比"></section>
           <div id="galleryGrid" class="gallery-grid"></div>
           <div id="galleryEmpty" class="gallery-empty" hidden>暂无生成记录，快去生成第一张图片吧。</div>
         </section>

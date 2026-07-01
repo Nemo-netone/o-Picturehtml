@@ -5,8 +5,12 @@
     apiConfigs: 'img_gen_api_configs',
     activeApi: 'img_gen_active_api',
     promptHistory: 'img_gen_prompt_history',
+    promptRecipes: 'img_gen_prompt_recipes',
+    selectedStyleChips: 'img_gen_selected_style_chips',
     imageParams: 'img_gen_image_params',
     backgroundImage: 'img_gen_background_image',
+    galleryLayout: 'img_gen_gallery_layout',
+    galleryFavoritesOnly: 'img_gen_gallery_favorites_only',
     autoDownload: 'img_gen_auto_download',
   };
 
@@ -14,6 +18,7 @@
   const DB_VERSION = 1;
   const STORE_NAME = 'records';
   const MAX_PROMPT_HISTORY = 20;
+  const MAX_PROMPT_RECIPES = 20;
   const GENERATION_DELAY_MS = 5000;
   const RETRY_DELAY_MS = 5000;
   const BACKGROUND_MODE_BLOCK_SELECTOR = [
@@ -44,56 +49,145 @@
     availableModels: ['gpt-image-2'],
   };
 
-  const DEFAULT_CONFIGS = [
-    DEFAULT_PICTURE_CONFIG,
+  const DEFAULT_CONFIGS = [DEFAULT_PICTURE_CONFIG];
+  const REMOVED_DEFAULT_CONFIG_IDS = new Set(['default-openai', 'default-custom']);
+  const PROMPT_STYLE_CHIPS = [
     {
-      id: 'default-openai',
-      name: 'OpenAI 官方',
-      baseUrl: 'https://api.openai.com',
-      apiKey: '',
-      model: 'dall-e-3',
-      availableModels: [],
+      id: 'realistic-photo',
+      label: '真实摄影',
+      description: '真实人像、自然皮肤、摄影级光影',
+      prompt: '真实摄影质感，皮肤和骨相保留自然细节，像高端人像摄影。',
     },
     {
-      id: 'default-custom',
-      name: '自定义 API（示例）',
-      baseUrl: 'https://your-api-endpoint.com',
-      apiKey: '',
-      model: 'dall-e-3',
-      availableModels: [],
+      id: 'movie-still',
+      label: '电影剧照',
+      description: '像电影海报，画面有情绪和叙事',
+      prompt: '电影剧照质感，镜头语言明确，像一帧决定性出场镜头。',
     },
+    {
+      id: 'oil-impasto',
+      label: '油画厚涂',
+      description: '背景和衣料更绘，但脸仍真实',
+      prompt: '油画厚涂与手绘笔触更明显，背景和服装可以更绘画化，但人物脸保持真实可信。',
+    },
+    {
+      id: 'oriental-fantasy',
+      label: '东方奇幻',
+      description: '云海、宫阙、花枝、神话氛围',
+      prompt: '东方奇幻氛围，云海、宫阙、花枝、玉质与金属细节可以更梦幻。',
+    },
+    {
+      id: 'future-sci-fi',
+      label: '科幻未来',
+      description: '未来建筑、透明材质、金属光泽',
+      prompt: '科幻未来氛围，未来建筑、透明材质、金属光泽和环境发光可以更充分展开。',
+    },
+    {
+      id: 'illustration-cover',
+      label: '高级插画',
+      description: '插画化背景，真人脸保持可信',
+      prompt: '高级插画封面感，背景与服装可更绘画化，但人物脸必须保留真人结构和可信皮肤。',
+    },
+    {
+      id: 'anime-cinema',
+      label: '动画电影感',
+      description: '色彩更梦幻，脸仍像真人',
+      prompt: '动画电影感，背景和色彩可以更梦幻更漂亮，但人物脸仍要像真实世界里的人。',
+    },
+    {
+      id: 'editorial-luxury',
+      label: '时装大片',
+      description: '高定、杂志、克制而压场',
+      prompt: '高定时装大片感，姿态利落，服装与珠宝具备编辑大片质感。',
+    },
+    {
+      id: 'vintage-film',
+      label: '复古胶片',
+      description: '胶片颗粒、旧时代故事',
+      prompt: '复古胶片电影感，轻微颗粒、沉稳色调、年代故事感更强。',
+    },
+    {
+      id: 'dreamscape',
+      label: '梦幻风景',
+      description: '背景特别好看，人物更突出',
+      prompt: '梦幻风景氛围，背景可以极美、极丰富、极有想象力，但人物始终是绝对中心。',
+    },
+  ];
+  const ADAPTIVE_THEME_VARIABLES = [
+    '--bg',
+    '--bg-soft',
+    '--surface',
+    '--surface-strong',
+    '--line',
+    '--line-strong',
+    '--feature-line',
+    '--feature-bg',
+    '--feature-shadow',
+    '--text',
+    '--text-soft',
+    '--muted',
+    '--muted-2',
+    '--primary',
+    '--primary-2',
+    '--accent',
+    '--button-bg',
+    '--button-shadow',
+    '--control-bg',
+    '--tabs-bg',
+    '--tabs-glow',
+    '--tool-bg',
+    '--tool-border',
+    '--top-divider',
+    '--active-tab-bg',
+    '--glass-glow-primary',
+    '--glass-glow-accent',
+    '--glass-wash',
+    '--feature-glow',
+    '--feature-inset',
+    '--result-card-bg',
+    '--result-card-shadow',
+    '--progress-track',
+    '--linework-color',
+    '--linework-strong',
+    '--linework-grid',
+    '--linework-opacity',
+    '--shadow',
+    '--shadow-soft',
+    '--focus',
   ];
 
   const PROMPT_VARIATION_AXES = {
     archetype: [
-      '东方神女感，清冷、端庄、不可轻易靠近，像从古画与月光里走出来的人',
-      '红衣惊鸿感，黑发红衣、强轮廓、回眸一瞬有压倒性的视觉记忆',
-      '雪中仙子感，冷白雪光、纤尘不染、眼神安静却让人无法移开视线',
-      '高定女王感，克制、锋利、奢华，像顶级时装大片里的绝世缪斯',
-      '江南雨巷美人感，湿润空气、油纸伞、柔情与距离感并存',
-      '敦煌飞天灵感，飘带、金粉、壁画色彩，但人物保持真实高级',
-      '未来赛博女神感，霓虹、金属、透明材质，冷艳但不俗艳',
-      '民国电影美人感，复古胶片、旗袍轮廓、眼神有旧时代故事',
-      '花间精灵感，花影、微风、薄纱，甜美但有神性和高级感',
-      '黑金宫廷感，暗色背景、金色边光、珠宝与织物形成压迫式华丽',
+      '雨中江南电影美人感，透明伞、湿润花枝、银灰雨光，脸真实清透，一回眸就让人忘不掉',
+      '暖光花海缪斯感，繁花、金色夕光和轻纱共同托住人物，长相真实但美得像命运安排',
+      '东方科幻浮城女主感，远处巨构城池和云海极梦幻，但人物脸保持真实摄影级质感',
+      '冰雪庭院宿命美人感，冷白雪林、晶莹发饰和安静凝视，脸部真实、清冷、难忘',
+      '民国或旧上海电影感，正式剪裁、珍珠或丝绸细节，端庄里带一点不可言说的宿命',
+      '高定杂志缪斯感，克制、锋利、干净，服装线条和人物骨相共同形成高级压场感',
+      '海边暖光电影感，风吹发丝和衣料，人物明亮、温暖、真实，美得有呼吸感',
+      '雨后城市长街美人感，湿润反光、柔和霓虹或路灯，脸和眼神仍是绝对中心',
+      '欧洲庄园或剧院外景感，正式礼服、石阶或廊柱，人物像电影海报里的命运主角',
+      '月夜花园幻想肖像感，花影、薄雾、微光和华丽衣饰可以梦幻，真人脸必须可信',
+      '暖金油画花园肖像感，阳光、玫瑰、厚涂笔触和温柔回眸融合，但五官仍像真实人物',
     ],
     beauty: [
-      '人物必须有倾国倾城的第一眼冲击力，五官精致但自然，气质比单纯漂亮更重要',
+      '人物必须有倾国倾城的第一眼冲击力，五官精致但真实自然，气质比单纯漂亮更重要',
       '眼神要有一眼万年的记忆点，像命运在这一秒停住，观者会被她的视线吸住',
-      '美感要高级、克制、震撼，不要网红脸、廉价写真感或过度甜腻',
-      '脸部轮廓、眉眼、鼻梁、唇形和下颌线要协调，整体像极少见的绝世美人',
-      '让她既有距离感又有情绪，像一个有故事、有身份、有宿命的人物',
+      '美感高级、克制、震撼，不要网红脸、廉价写真感、过度甜腻或塑料美颜',
+      '脸部轮廓、眉眼、鼻梁、唇形和下颌线协调，整体像真实世界里极少见的绝世美人',
+      '让她既有距离感又有真实情绪，像一个有故事、有身份、有宿命的人物',
       '美丽要带有灵魂感和压场感，不只是清晰好看，而是让画面有收藏价值',
-      '人物气质要干净、贵气、难忘，任何背景和服装都服务于她的存在感',
-      '让观者第一眼先被脸和眼神震住，第二眼才看到服装、光线和场景细节',
-      '避免普通模板脸，保留真实皮肤纹理和细微表情，让美貌更可信',
-      '整体效果像电影中女主角出场的决定性镜头，美得有故事、有重量',
+      '人物气质干净、贵气、难忘，任何背景、服装和道具都只为她的存在感服务',
+      '第一眼先被脸、眼神和气质震住，第二眼才看到服装、光线和空间细节',
+      '避免普通模板脸，每一张脸都要有不同辨识度，保留真实皮肤纹理、轻微毛孔、自然不完美和细微表情',
+      '整体效果像电影中女主角出场的决定性镜头，美得有故事、有重量、有命运感',
+      '皮肤可以漂亮、干净、通透，但仍要像真实相机拍到的人，不要变成蜡像或瓷娃娃',
     ],
     framing: [
       '近景半身肖像，脸和眼神占据第一视觉中心，背景只做氛围衬托',
       '正面凝视构图，双眼清晰、瞳孔有高光，形成一眼万年的凝视感',
       '3/4 侧脸回眸，露出优雅下颌线和肩颈轮廓，画面有惊鸿一瞥的瞬间感',
-      '低机位轻微仰拍，增强神女或女王般的气场，不夸张变形',
+      '低机位轻微仰拍，增强电影女主或高定缪斯般的气场，不夸张变形',
       '高机位安静俯拍，人物像被命运凝视，情绪更脆弱、更难忘',
       '中景全身构图，服装、发丝、手部动作和场景共同塑造绝世气质',
       '远景叙事构图，人物被宏大环境包围，但仍然是画面唯一灵魂',
@@ -114,75 +208,94 @@
       '大片级特写镜头，眼神、睫毛、唇部和发丝成为视觉锚点',
     ],
     lighting: [
-      '月光般的冷白侧光，脸部干净，轮廓有神性和距离感',
+      '柔和冷白侧光，脸部干净，轮廓有电影感和距离感',
       '金色逆光边缘光，发丝、睫毛、肩颈和衣料边缘发亮',
-      '雨夜霓虹反射光，眼神有湿润高光，背景彩色但不过曝',
-      '宫灯或烛光暖光，局部照亮脸和手，氛围亲密又古典',
-      '雪地漫反射光，皮肤通透但保留真实纹理，整体清冷震撼',
-      '舞台聚光灯，人物从暗背景中出现，像命运性登场',
-      '清晨雾光，低对比、柔软、仙气，但五官不要糊',
+      '雨后反射光，眼神有湿润高光，背景有色彩但不过曝不抢脸',
+      '室内窗边暖光，局部照亮脸和手，氛围亲密又像电影剧照',
+      '阴天漫反射光，皮肤通透但保留真实纹理，整体清冷而震撼',
+      '舞台或剧院追光，人物从暗背景中出现，像命运性登场',
+      '清晨雾光，低对比、柔软、明亮，但五官和眼神保持清晰锐利',
       '窗边冷暖混合光，脸部有细腻明暗过渡，情绪更深',
-      '高定棚拍柔光，珠宝、妆容和皮肤质感高级稳定',
-      '夕阳红金侧光，红衣、黑发和金色轮廓形成强烈记忆点',
+      '高定棚拍柔光，妆容、衣料和皮肤质感高级稳定',
+      '夕阳红金侧光，黑发、肤色和正式服装轮廓形成强烈记忆点',
     ],
     atmosphere: [
       '惊鸿一瞥的震撼感，像人群中只看一眼就再也忘不掉',
       '宿命感，像电影女主在关键剧情节点第一次转身',
-      '神性与人间感并存，既美得遥远，又有真实情绪',
+      '遥远感与人间感并存，既美得不可轻易靠近，又有真实情绪',
       '清冷破碎感，安静、克制、眼神里有无法说出口的故事',
       '压场的女王气场，沉稳、高贵、危险但不夸张',
       '梦境感，柔雾、慢节奏、情绪含蓄，像回忆里最美的一秒',
-      '东方庭院式静谧，留白、风、布料和植物共同营造气息',
+      '东方静谧感，留白、风、布料和光影共同营造气息',
       '复古电影感，颗粒轻微，颜色沉稳，人物像旧胶片里的传奇',
-      '现代都市冷艳感，清晰、锋利、有节奏，带高级距离',
-      '花与风的灵动感，漂亮但不浅薄，甜美里保留灵魂感',
+      '现代都市冷艳感，清晰、锋利、有节奏，背景可有科幻或插画气息但脸保留真人质感',
+      '花与风的灵动感，漂亮但不浅薄，甜美里保留成熟气质和灵魂感',
+      '宏大幻想感，背景像动画电影或概念艺术般漂亮，但人物脸必须是真实人像',
+      '油画般的温暖眷恋感，笔触、阳光和花园可以很绘画化，但眉眼与微笑要有真人温度',
     ],
     palette: [
-      '红衣、黑发、雪肤、金色边光，高冲击但不俗艳',
-      '月白、银灰、墨黑、冷蓝，清冷神女调色',
-      '胭脂红、墨绿、暗金，古典华丽但保持高级克制',
-      '黑金主调，少量宝石色点缀，压迫式奢华',
-      '雨夜蓝灰与霓虹粉紫，冷暖对比明显，眼神高光突出',
-      '奶油白、浅蓝、淡粉，空气感轻盈干净，适合仙气美人',
-      '琥珀金、深褐、旧胶片黄，复古电影调色',
-      '樱花粉、木色、苔藓绿，偏东方庭院和花间气质',
-      '黑白灰主调，只保留唇色、肤色或一处红色视觉锚点',
-      '自然肤色优先，背景色彩退后，所有颜色都为脸和眼神服务',
+      '自然肤色、黑发、暖白和柔金，明亮温暖但不廉价甜腻',
+      '旧胶片琥珀、深褐、柔黑和奶油高光，复古但脸部清晰',
+      '雨后蓝灰、暖路灯和低饱和红，冷暖对比明显，眼神高光突出',
+      '象牙白、墨绿、珍珠灰和少量暗金，正式高级但保持克制',
+      '海边浅蓝、沙色、白色衣料和金色夕光，空气感明亮干净',
+      '花园绿色、浅粉、木色和柔白，背景退后，人物肤色更突出',
+      '黑白灰主调，只保留唇色、肤色或一处服装色作为视觉锚点',
+      '冬日银灰、冷白、深蓝和自然肤色，清冷但真实不仙侠化',
+      '剧院酒红、暗木、金色边光和黑色正式服装，电影感更强',
+      '东方科幻金、雾蓝、琥珀光和金属微光，背景梦幻宏大但肤色真实',
+      '油画暖金、玫瑰粉、草木绿和奶油白，像黄昏花园里的厚涂肖像',
+      '低饱和高级色，背景色彩可以华丽，但脸、眼神和气质永远是主色',
     ],
     scene: [
-      '加入轻微风吹动发丝、衣袖或薄纱，让人物像刚从画面里转身',
-      '背景有花枝、纱帘、窗框、珠帘或玻璃反射作为前景层次',
-      '加入雨、雪、薄雾、花瓣或金粉等空气粒子，但保持自然高级',
-      '人物与环境有一个优雅动作：回头、抬眼、扶簪、拢袖、触碰花枝或凝视窗外',
-      '使用纵深路径、门廊、台阶、长街或宫殿廊柱制造命运感',
-      '背景留白，让脸、眼神、发丝和服装轮廓成为第一阅读点',
-      '远处有灯火、月亮、水面反光或霓虹，形成深度而不是平铺背景',
-      '让画面有一个明确视觉锚点：眼神高光、红衣边缘、手部动作、珠宝或光斑',
-      '场景必须服务人物，不要让建筑、花草、装饰抢走主体',
-      '背景细节轻微虚化，主体清晰，整体像海报或封面级人物图',
+      '加入轻微风吹动发丝、衣袖、薄纱或华丽正式服装边缘，让人物像刚从画面里转身',
+      '背景可选花枝、透明伞、纱帘、窗框、剧院幕布、长廊、玻璃反射或巨大城市轮廓作为层次',
+      '可加入雨、雪、薄雾、花瓣、海风、云海、尘埃光粒或细小发光颗粒，让画面更梦幻',
+      '人物有一个优雅动作：回头、抬眼、拢衣、扶伞、触碰花枝、站在门口或凝视远方',
+      '使用纵深路径、门廊、台阶、长街、海岸线、山路、剧院座席或天空桥制造命运感',
+      '背景可以是户外、室内、城市、庄园、剧院、花海、雪林、奇幻宫殿、科幻浮城或极简棚拍，选择最美的一种托住人物',
+      '远处有灯火、水面反光、窗光、海面、雨痕、柔焦植物、巨型建筑或云层光束，形成深度而不是平铺背景',
+      '画面必须有明确视觉锚点：眼神高光、脸部轮廓、手部动作、衣领线条、透明衣料或一处强光斑',
+      '场景必须服务人物，不要让建筑、花草、装饰、风景抢走主体',
+      '背景细节轻微虚化或克制留白，主体清晰，整体像海报或封面级人物图',
+    ],
+    background: [
+      '银灰雨巷与江南庭院，湿润梅花、透明伞、水面反光和白墙黑瓦形成诗意层次',
+      '金色花海与繁花草坡，前景花朵柔焦，夕阳穿过花枝，背景像梦里最温暖的一秒',
+      '东方科幻天空城，云海、悬浮楼阁、金属桥、远处巨构和暖金雾光形成宏大风景',
+      '冰雪森林与冷白宫廊，雪粒、冰晶发光、远处亭台和蓝白雾气制造清冷宿命感',
+      '旧上海室内或剧院，暗木、绒幕、台灯、镜面反光和暖色追光形成复古电影空间',
+      '海岸夕光与风暴云，远处海面反光、礁石、长风和金色云缝让背景有史诗感',
+      '玻璃花房与雨后植物，水珠、藤蔓、柔焦花朵和窗外雾光让画面明亮又精致',
+      '月夜庭院与发光花枝，冷月、薄雾、石阶、水池和微光花瓣形成轻幻想氛围',
+      '未来东方长街，霓虹、灯笼、金属屋檐、雨水反光和远处高塔融合，但不压过人物脸',
+      '极简暗场与一束命运追光，背景几乎退黑，只留下布料、珠宝和脸部轮廓的高级光影',
+      '暖金油画花园，玫瑰、草木、远处建筑剪影和厚涂阳光融合，画面像高级手绘肖像',
     ],
     style: [
-      '东方神女电影海报风格，留白、风、月光、布料和眼神共同形成震撼',
-      '红衣古风惊鸿写真风格，强对比、强轮廓、强记忆点',
-      '高定时装大片 editorial 风格，姿态、妆造、珠宝和服装都精致克制',
-      '复古胶片电影美人风格，像旧时代传奇女主的定格镜头',
-      '清冷雪景仙侠风格，冷光、薄雾、雪粒和白色衣料突出不可触碰感',
-      '黑金宫廷肖像风格，暗背景、金色边光、珠宝与织物极致华丽',
-      '赛博冷艳女神风格，霓虹、金属反射、未来感妆造，但脸部自然高级',
-      '梦幻现实主义风格，真实人物配合轻微超现实空气感',
-      '江南水墨美人风格，雨、伞、青石、白墙黑瓦，温柔却难忘',
-      '收藏级艺术人像风格，像可用于封面、海报或画册的完成作品',
+      '真人电影人像加幻想背景风格，脸部保持摄影真实，背景可以像动画电影概念图一样漂亮',
+      '高定时装大片 editorial 风格，姿态、妆造、珠宝和服装都精致克制，服装可以更华丽',
+      '复古胶片电影美人风格，像旧时代传奇女主的定格镜头，背景有年代空间和故事感',
+      '东方奇幻电影海报风格，服装、建筑、云雾和光线可以充分发挥，但脸必须真实',
+      '油画插画肖像风格，整体可有厚涂笔触、纸纹和手绘质感，但五官比例、眼神和皮肤光影要像真人',
+      '明亮暖调封面肖像风格，温暖、干净、有高级审美，不像影楼模板',
+      '雨后城市电影剧照风格，反光、湿润空气和眼神情绪共同建立故事',
+      '科幻东方史诗风格，宏大背景、金属微光和奇观城市服务人物，不要让人物变成游戏建模',
+      '冰雪梦幻肖像风格，冷光、雪粒、晶莹饰品和真实眼神共同制造震撼',
+      '轻梦幻现实主义风格，真实人物配合梦幻空气感、花海、云海或发光粒子',
+      '高级插画封面风格，构图和背景可以绘画化，人物脸部仍保持真实亚洲女性的可信细节',
+      '收藏级艺术人像风格，像可用于封面、海报、画册或电影主视觉的完成作品',
     ],
     detail: [
       '强调眼神高光、睫毛、眉眼神态、皮肤真实纹理和发丝边缘',
       '强调脸部骨相自然精致，五官协调，不要网红模板脸或蛇精脸',
       '强调手部动作自然、肩颈线条舒展、姿态优雅不僵硬',
-      '强调衣料褶皱、刺绣、珠宝、发饰、薄纱和皮肤之间的材质对比',
+      '强调正式服装或幻想礼服的剪裁、衣料褶皱、珠宝、发饰和皮肤之间的材质对比',
       '强调微表情，不要夸张笑容，保留克制、心事和宿命感',
-      '强调景深层次，前景、中景、背景都有清楚分工，但主体永远最强',
-      '强调真实摄影质感，不要塑料皮肤、AI 过度锐化或廉价磨皮',
+      '强调景深层次，前景、中景、背景都有清楚分工，风景可以很美，但主体永远最强',
+      '强调真实脸部摄影质感，不要塑料皮肤、AI 过度锐化、假脸或廉价磨皮',
       '强调主体比例自然，脸、手、眼睛、牙齿、身体结构准确',
-      '强调画面统一性，妆容、服装、场景、光线、色彩都服务绝世气质',
+      '强调画面统一性，妆容、服装、场景、光线、色彩和梦幻背景都服务绝世气质',
       '强调最终作品像可收藏的封面级人物图，而不是普通生成图',
     ],
   };
@@ -200,6 +313,8 @@
     modelIds: [],
     selectedModel: '',
     selectedGenCount: 1,
+    selectedStyleChipIds: new Set(),
+    promptRecipes: [],
     refImages: [],
     promptHistory: [],
     gallery: [],
@@ -228,10 +343,15 @@
     },
     galleryView: {
       displayMode: 'card',
+      layout: 'grid',
       sortMode: 'time-desc',
       groupByMode: false,
       groupByContent: false,
+      showFavoritesOnly: false,
       activeFilters: new Set(),
+      compareMode: false,
+      compareSelectedIds: new Set(),
+      compareBestId: null,
     },
     preview: {
       index: 0,
@@ -256,6 +376,7 @@
   };
 
   let dbPromise = null;
+  let backgroundThemeRequestId = 0;
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -264,7 +385,10 @@
     bindEvents();
     loadApiConfigs();
     loadPromptHistory();
+    loadStyleChipSelection();
+    loadPromptRecipes();
     loadImageParams();
+    loadGalleryPreferences();
     loadAutoDownloadSetting();
     loadBackgroundImage();
     createParticles();
@@ -330,6 +454,12 @@
       promptHistoryList: byId('promptHistoryList'),
       promptHistoryEmpty: byId('promptHistoryEmpty'),
       promptHistoryCount: byId('promptHistoryCount'),
+      styleChipList: byId('styleChipList'),
+      styleChipAllBtn: byId('styleChipAllBtn'),
+      styleChipClearBtn: byId('styleChipClearBtn'),
+      saveRecipeBtn: byId('saveRecipeBtn'),
+      recipeList: byId('recipeList'),
+      recipeEmpty: byId('recipeEmpty'),
       genBtn: byId('genBtn'),
       genProgress: byId('genProgress'),
       progressText: byId('progressText'),
@@ -350,12 +480,23 @@
       galleryGrid: byId('galleryGrid'),
       galleryCount: byId('galleryCount'),
       galleryEmpty: byId('galleryEmpty'),
+      compareModeBtn: byId('compareModeBtn'),
+      compareSelectionCount: byId('compareSelectionCount'),
+      openCompareBtn: byId('openCompareBtn'),
+      clearCompareBtn: byId('clearCompareBtn'),
+      compareToolbar: byId('compareToolbar'),
+      compareToolbarCount: byId('compareToolbarCount'),
+      compareToolbarOpenBtn: byId('compareToolbarOpenBtn'),
+      compareToolbarClearBtn: byId('compareToolbarClearBtn'),
+      compareTray: byId('compareTray'),
       text2imgCount: byId('text2imgCount'),
       img2imgCount: byId('img2imgCount'),
       totalCount: byId('totalCount'),
       sortMode: byId('sortMode'),
       groupByMode: byId('groupByMode'),
       groupByContent: byId('groupByContent'),
+      galleryLayoutRadios: $$('input[name="galleryLayout"]'),
+      showFavoritesOnly: byId('showFavoritesOnly'),
       tagFilters: byId('tagFilters'),
       toggleDataManager: byId('toggleDataManager'),
       dataManagerContent: byId('dataManagerContent'),
@@ -438,6 +579,9 @@
     dom.promptHistoryBtn?.addEventListener('click', () => {
       dom.promptHistoryPanel.classList.toggle('open');
     });
+    dom.styleChipAllBtn?.addEventListener('click', selectAllStyleChips);
+    dom.styleChipClearBtn?.addEventListener('click', clearStyleChipSelection);
+    dom.saveRecipeBtn?.addEventListener('click', saveCurrentRecipe);
 
     $$('.gen-count-btn').forEach((button) => {
       button.addEventListener('click', () => {
@@ -474,6 +618,14 @@
       state.galleryView.groupByContent = dom.groupByContent.checked;
       renderGalleryWithControls();
     });
+    dom.galleryLayoutRadios?.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) setGalleryLayout(radio.value);
+      });
+    });
+    dom.showFavoritesOnly?.addEventListener('change', () => {
+      setShowFavoritesOnly(Boolean(dom.showFavoritesOnly?.checked));
+    });
     $$('.tag-filter').forEach((button) => {
       button.addEventListener('click', () => {
         const tag = button.dataset.tag;
@@ -487,6 +639,11 @@
         renderGalleryWithControls();
       });
     });
+    dom.compareModeBtn?.addEventListener('click', toggleCompareMode);
+    dom.openCompareBtn?.addEventListener('click', openCompareTray);
+    dom.clearCompareBtn?.addEventListener('click', clearCompareSelection);
+    dom.compareToolbarOpenBtn?.addEventListener('click', openCompareTray);
+    dom.compareToolbarClearBtn?.addEventListener('click', clearCompareSelection);
 
     dom.toggleDataManager?.addEventListener('click', () => {
       dom.dataManagerContent.classList.toggle('collapsed');
@@ -555,6 +712,8 @@
     renderApiConfigs();
     updateCurrentApiDisplay();
     renderPromptHistory();
+    renderStyleChips();
+    renderRecipeList();
     renderThumbnails();
     renderGalleryIfVisible();
     updateStorageInfo();
@@ -644,13 +803,41 @@
     if (state.backgroundImage) {
       document.body.style.setProperty('--custom-bg-image', `url("${state.backgroundImage}")`);
       document.body.classList.add('custom-bg');
+      applyAdaptiveThemeFromImage(state.backgroundImage);
     } else {
       document.body.style.removeProperty('--custom-bg-image');
       document.body.classList.remove('custom-bg');
+      resetAdaptiveTheme();
     }
     if (dom.resetBackgroundBtn) {
       dom.resetBackgroundBtn.hidden = !state.backgroundImage;
     }
+  }
+
+  function applyAdaptiveThemeFromImage(dataUrl) {
+    const requestId = ++backgroundThemeRequestId;
+    analyzeBackgroundTheme(dataUrl)
+      .then((theme) => {
+        if (requestId !== backgroundThemeRequestId || state.backgroundImage !== dataUrl) return;
+        applyAdaptiveTheme(theme);
+      })
+      .catch(() => {
+        if (requestId !== backgroundThemeRequestId) return;
+        resetAdaptiveTheme(false);
+      });
+  }
+
+  function applyAdaptiveTheme(theme) {
+    const rootStyle = document.documentElement.style;
+    Object.entries(theme).forEach(([name, value]) => rootStyle.setProperty(name, value));
+    document.body.classList.add('adaptive-theme');
+  }
+
+  function resetAdaptiveTheme(incrementRequest = true) {
+    if (incrementRequest) backgroundThemeRequestId += 1;
+    const rootStyle = document.documentElement.style;
+    ADAPTIVE_THEME_VARIABLES.forEach((name) => rootStyle.removeProperty(name));
+    document.body.classList.remove('adaptive-theme');
   }
 
   function resetBackgroundImage() {
@@ -688,6 +875,241 @@
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  function analyzeBackgroundTheme(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('背景图片取色失败'));
+      image.onload = () => {
+        try {
+          const sampleSize = 64;
+          const canvas = document.createElement('canvas');
+          canvas.width = sampleSize;
+          canvas.height = sampleSize;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) throw new Error('当前浏览器不支持背景取色');
+          ctx.drawImage(image, 0, 0, sampleSize, sampleSize);
+          const pixels = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+          const palette = sampleBackgroundPixels(pixels);
+          resolve(buildAdaptiveTheme(palette));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.src = dataUrl;
+    });
+  }
+
+  function sampleBackgroundPixels(pixels) {
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    let totalWeight = 0;
+    let bestColor = null;
+    let bestScore = -1;
+
+    for (let index = 0; index < pixels.length; index += 16) {
+      const alpha = pixels[index + 3] / 255;
+      if (alpha < 0.2) continue;
+
+      const r = pixels[index];
+      const g = pixels[index + 1];
+      const b = pixels[index + 2];
+      const hsl = rgbToHsl(r, g, b);
+      const luma = getLuminance(r, g, b);
+      const edgePenalty = luma < 0.04 || luma > 0.96 ? 0.38 : 1;
+      const weight = alpha * edgePenalty * (0.55 + hsl.s * 1.65);
+
+      red += r * weight;
+      green += g * weight;
+      blue += b * weight;
+      totalWeight += weight;
+
+      const score = hsl.s * 1.6 + (1 - Math.abs(hsl.l - 0.52)) * 0.8 + edgePenalty * 0.2;
+      if (score > bestScore && luma > 0.08 && luma < 0.92) {
+        bestScore = score;
+        bestColor = { r, g, b, hsl };
+      }
+    }
+
+    if (!totalWeight) {
+      return {
+        average: { r: 234, g: 248, b: 255 },
+        source: { h: 0.55, s: 0.42, l: 0.58 },
+      };
+    }
+
+    const average = {
+      r: Math.round(red / totalWeight),
+      g: Math.round(green / totalWeight),
+      b: Math.round(blue / totalWeight),
+    };
+    const averageHsl = rgbToHsl(average.r, average.g, average.b);
+    const source = bestColor?.hsl || averageHsl;
+    return { average, source };
+  }
+
+  function buildAdaptiveTheme({ average, source }) {
+    const luma = getLuminance(average.r, average.g, average.b);
+    const isDark = luma < 0.42;
+    const hue = source.h;
+    const saturation = clamp(Math.max(source.s, 0.28), 0.28, 0.76);
+    const primary = hslToRgb(hue, saturation, isDark ? 0.62 : 0.52);
+    const secondary = hslToRgb(hue + 0.1, clamp(saturation * 0.86 + 0.08, 0.3, 0.82), isDark ? 0.58 : 0.55);
+    const accent = hslToRgb(hue + 0.33, clamp(saturation * 0.72 + 0.12, 0.3, 0.78), isDark ? 0.62 : 0.48);
+    const tint = hslToRgb(hue, clamp(saturation * 0.38, 0.14, 0.42), isDark ? 0.18 : 0.93);
+    const tintSoft = hslToRgb(hue + 0.04, clamp(saturation * 0.32, 0.12, 0.38), isDark ? 0.24 : 0.86);
+    const shadow = hslToRgb(hue, clamp(saturation * 0.5, 0.18, 0.46), isDark ? 0.12 : 0.38);
+
+    if (isDark) {
+      return {
+        '--bg': rgbToCss(tint),
+        '--bg-soft': rgbToCss(tintSoft),
+        '--surface': rgbaToCss(tint, 0.64),
+        '--surface-strong': rgbaToCss(tintSoft, 0.78),
+        '--line': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.22),
+        '--line-strong': rgbaToCss(primary, 0.46),
+        '--feature-line': rgbaToCss(primary, 0.3),
+        '--feature-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.09),
+        '--feature-shadow': `0 14px 34px ${rgbaToCss(shadow, 0.32)}`,
+        '--text': '#f7fbff',
+        '--text-soft': '#dce9f1',
+        '--muted': '#b7c8d3',
+        '--muted-2': '#93a8b5',
+        '--primary': rgbToCss(primary),
+        '--primary-2': rgbToCss(secondary),
+        '--accent': rgbToCss(accent),
+        '--button-bg': `linear-gradient(135deg, ${rgbaToCss(primary, 0.96)}, ${rgbaToCss(secondary, 0.9)})`,
+        '--button-shadow': `0 12px 30px ${rgbaToCss(primary, 0.28)}`,
+        '--control-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.12),
+        '--tabs-bg': rgbaToCss(tint, 0.76),
+        '--tabs-glow': rgbaToCss(primary, 0.2),
+        '--tool-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.11),
+        '--tool-border': rgbaToCss(primary, 0.28),
+        '--top-divider': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.22),
+        '--active-tab-bg': `linear-gradient(135deg, ${rgbaToCss(primary, 0.94)}, ${rgbaToCss(secondary, 0.9)})`,
+        '--glass-glow-primary': rgbaToCss(primary, 0.2),
+        '--glass-glow-accent': rgbaToCss(accent, 0.16),
+        '--glass-wash': `linear-gradient(135deg, ${rgbaToCss({ r: 255, g: 255, b: 255 }, 0.12)}, ${rgbaToCss(primary, 0.13)} 48%, ${rgbaToCss(secondary, 0.1)})`,
+        '--feature-glow': rgbaToCss(primary, 0.18),
+        '--feature-inset': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.14),
+        '--result-card-bg': `linear-gradient(180deg, ${rgbaToCss({ r: 255, g: 255, b: 255 }, 0.14)}, ${rgbaToCss(secondary, 0.14)}), ${rgbaToCss(tint, 0.66)}`,
+        '--result-card-shadow': `0 18px 42px ${rgbaToCss(shadow, 0.34)}`,
+        '--progress-track': rgbaToCss(secondary, 0.2),
+        '--linework-color': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.08),
+        '--linework-strong': rgbaToCss(primary, 0.2),
+        '--linework-grid': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.055),
+        '--linework-opacity': '0.74',
+        '--shadow': `0 22px 70px ${rgbaToCss(shadow, 0.38)}`,
+        '--shadow-soft': `0 14px 36px ${rgbaToCss(shadow, 0.3)}`,
+        '--focus': `0 0 0 3px ${rgbaToCss(secondary, 0.32)}`,
+      };
+    }
+
+    return {
+      '--bg': rgbToCss(tint),
+      '--bg-soft': rgbToCss(tintSoft),
+      '--surface': rgbaToCss(tint, 0.64),
+      '--surface-strong': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.84),
+      '--line': rgbaToCss(primary, 0.24),
+      '--line-strong': rgbaToCss(primary, 0.48),
+      '--feature-line': rgbaToCss(secondary, 0.34),
+      '--feature-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.54),
+      '--feature-shadow': `0 14px 34px ${rgbaToCss(shadow, 0.12)}`,
+      '--text': '#102a43',
+      '--text-soft': '#28465e',
+      '--muted': '#557084',
+      '--muted-2': '#748ca0',
+      '--primary': rgbToCss(primary),
+      '--primary-2': rgbToCss(secondary),
+      '--accent': rgbToCss(accent),
+      '--button-bg': `linear-gradient(135deg, ${rgbaToCss(primary, 0.96)}, ${rgbaToCss(secondary, 0.92)})`,
+      '--button-shadow': `0 12px 28px ${rgbaToCss(secondary, 0.24)}`,
+      '--control-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.68),
+      '--tabs-bg': rgbaToCss({ r: 250, g: 254, b: 255 }, 0.68),
+      '--tabs-glow': rgbaToCss(primary, 0.18),
+      '--tool-bg': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.42),
+      '--tool-border': rgbaToCss(secondary, 0.26),
+      '--top-divider': rgbaToCss(secondary, 0.22),
+      '--active-tab-bg': `linear-gradient(135deg, ${rgbaToCss(primary, 0.92)}, ${rgbaToCss(secondary, 0.9)})`,
+      '--glass-glow-primary': rgbaToCss(primary, 0.2),
+      '--glass-glow-accent': rgbaToCss(accent, 0.18),
+      '--glass-wash': `linear-gradient(135deg, ${rgbaToCss({ r: 255, g: 255, b: 255 }, 0.72)}, ${rgbaToCss(secondary, 0.22)} 48%, ${rgbaToCss(primary, 0.18)})`,
+      '--feature-glow': rgbaToCss(primary, 0.14),
+      '--feature-inset': rgbaToCss({ r: 255, g: 255, b: 255 }, 0.78),
+      '--result-card-bg': `linear-gradient(180deg, ${rgbaToCss({ r: 255, g: 255, b: 255 }, 0.76)}, ${rgbaToCss(secondary, 0.2)}), ${rgbaToCss({ r: 255, g: 255, b: 255 }, 0.68)}`,
+      '--result-card-shadow': `0 18px 42px ${rgbaToCss(shadow, 0.18)}`,
+      '--progress-track': rgbaToCss(secondary, 0.18),
+      '--linework-color': rgbaToCss(secondary, 0.1),
+      '--linework-strong': rgbaToCss(primary, 0.15),
+      '--linework-grid': rgbaToCss(secondary, 0.07),
+      '--linework-opacity': '0.8',
+      '--shadow': `0 22px 70px ${rgbaToCss(shadow, 0.22)}`,
+      '--shadow-soft': `0 14px 36px ${rgbaToCss(shadow, 0.16)}`,
+      '--focus': `0 0 0 3px ${rgbaToCss(secondary, 0.28)}`,
+    };
+  }
+
+  function rgbToHsl(r, g, b) {
+    const red = r / 255;
+    const green = g / 255;
+    const blue = b / 255;
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const lightness = (max + min) / 2;
+    if (max === min) return { h: 0, s: 0, l: lightness };
+
+    const delta = max - min;
+    const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    let hue = 0;
+    if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0);
+    else if (max === green) hue = (blue - red) / delta + 2;
+    else hue = (red - green) / delta + 4;
+
+    return { h: hue / 6, s: saturation, l: lightness };
+  }
+
+  function hslToRgb(h, s, l) {
+    const hue = ((h % 1) + 1) % 1;
+    if (s === 0) {
+      const value = Math.round(l * 255);
+      return { r: value, g: value, b: value };
+    }
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    return {
+      r: Math.round(hueToRgb(p, q, hue + 1 / 3) * 255),
+      g: Math.round(hueToRgb(p, q, hue) * 255),
+      b: Math.round(hueToRgb(p, q, hue - 1 / 3) * 255),
+    };
+  }
+
+  function hueToRgb(p, q, t) {
+    let hue = t;
+    if (hue < 0) hue += 1;
+    if (hue > 1) hue -= 1;
+    if (hue < 1 / 6) return p + (q - p) * 6 * hue;
+    if (hue < 1 / 2) return q;
+    if (hue < 2 / 3) return p + (q - p) * (2 / 3 - hue) * 6;
+    return p;
+  }
+
+  function getLuminance(r, g, b) {
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+
+  function rgbToCss(color) {
+    return `rgb(${color.r}, ${color.g}, ${color.b})`;
+  }
+
+  function rgbaToCss(color, alpha) {
+    return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 
   function showStatus(type, message, timeout = 4500) {
@@ -742,6 +1164,8 @@
       state.activeApiId = null;
     }
 
+    state.apiConfigs = removeRemovedDefaultConfigs(state.apiConfigs);
+
     if (!Array.isArray(state.apiConfigs) || state.apiConfigs.length === 0) {
       state.apiConfigs = structuredCloneSafe(DEFAULT_CONFIGS);
     }
@@ -752,11 +1176,16 @@
       state.activeApiId = state.apiConfigs[0]?.id || null;
     }
 
-    if (!state.activeApiId || state.activeApiId === 'default-openai' || state.activeApiId === 'default-custom') {
+    if (!state.activeApiId || REMOVED_DEFAULT_CONFIG_IDS.has(state.activeApiId)) {
       state.activeApiId = DEFAULT_PICTURE_CONFIG.id;
     }
 
     saveApiConfigs();
+  }
+
+  function removeRemovedDefaultConfigs(configs) {
+    if (!Array.isArray(configs)) return [];
+    return configs.filter((config) => !REMOVED_DEFAULT_CONFIG_IDS.has(config?.id));
   }
 
   function ensureDefaultPictureConfig() {
@@ -1216,6 +1645,260 @@
     });
   }
 
+  function loadStyleChipSelection() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedStyleChips) || '[]');
+      state.selectedStyleChipIds = new Set(normalizeStyleChipIds(saved));
+    } catch {
+      state.selectedStyleChipIds = new Set();
+    }
+  }
+
+  function saveStyleChipSelection() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.selectedStyleChips, JSON.stringify([...state.selectedStyleChipIds]));
+    } catch {}
+  }
+
+  function renderStyleChips() {
+    if (!dom.styleChipList) return;
+    dom.styleChipList.innerHTML = '';
+
+    PROMPT_STYLE_CHIPS.forEach((chip) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'style-chip';
+      button.setAttribute('aria-pressed', String(state.selectedStyleChipIds.has(chip.id)));
+      button.title = chip.description;
+
+      const label = createTextElement('span', 'style-chip-label', chip.label);
+      const desc = createTextElement('small', 'style-chip-desc', chip.description);
+      button.append(label, desc);
+      button.addEventListener('click', () => toggleStyleChip(chip.id));
+      dom.styleChipList.appendChild(button);
+    });
+
+    if (dom.styleChipClearBtn) dom.styleChipClearBtn.disabled = state.selectedStyleChipIds.size === 0;
+    if (dom.styleChipAllBtn) dom.styleChipAllBtn.disabled = state.selectedStyleChipIds.size === PROMPT_STYLE_CHIPS.length;
+  }
+
+  function toggleStyleChip(id) {
+    if (state.selectedStyleChipIds.has(id)) {
+      state.selectedStyleChipIds.delete(id);
+    } else {
+      state.selectedStyleChipIds.add(id);
+    }
+    saveStyleChipSelection();
+    renderStyleChips();
+  }
+
+  function selectAllStyleChips() {
+    state.selectedStyleChipIds = new Set(PROMPT_STYLE_CHIPS.map((chip) => chip.id));
+    saveStyleChipSelection();
+    renderStyleChips();
+  }
+
+  function clearStyleChipSelection() {
+    state.selectedStyleChipIds.clear();
+    saveStyleChipSelection();
+    renderStyleChips();
+  }
+
+  function normalizeStyleChipIds(ids) {
+    if (!Array.isArray(ids)) return [];
+    const validIds = new Set(PROMPT_STYLE_CHIPS.map((chip) => chip.id));
+    return [...new Set(ids.filter((id) => validIds.has(id)))];
+  }
+
+  function getStyleChipsByIds(ids) {
+    const normalizedIds = normalizeStyleChipIds(ids);
+    return normalizedIds
+      .map((id) => PROMPT_STYLE_CHIPS.find((chip) => chip.id === id))
+      .filter(Boolean);
+  }
+
+  function getSelectedStyleChips() {
+    return getStyleChipsByIds([...state.selectedStyleChipIds]);
+  }
+
+  function getStyleSelectionPool() {
+    const selected = getSelectedStyleChips();
+    return selected.length ? selected : PROMPT_STYLE_CHIPS;
+  }
+
+  function pickStyleChipsForVariation(index, batchSeed = 0) {
+    const pool = getStyleSelectionPool();
+    if (!pool.length) return [];
+    const seedOffset = Math.abs(Math.floor(Number(batchSeed) || 0)) % pool.length;
+    const count = Math.min(pool.length, state.selectedStyleChipIds.size > 1 ? 2 : 1);
+    const chips = [];
+
+    for (let offset = 0; chips.length < count && offset < pool.length; offset += 1) {
+      const chip = pool[(index * 3 + seedOffset + offset * 5) % pool.length];
+      if (!chips.some((item) => item.id === chip.id)) chips.push(chip);
+    }
+
+    return chips;
+  }
+
+  function getStyleChipMetadata(chips = getSelectedStyleChips()) {
+    return {
+      styleChipIds: chips.map((chip) => chip.id),
+      styleChipLabels: chips.map((chip) => chip.label),
+    };
+  }
+
+  function loadPromptRecipes() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.promptRecipes) || '[]');
+      state.promptRecipes = Array.isArray(saved)
+        ? saved.map(normalizePromptRecipe).filter(Boolean).slice(0, MAX_PROMPT_RECIPES)
+        : [];
+    } catch {
+      state.promptRecipes = [];
+    }
+  }
+
+  function savePromptRecipes() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.promptRecipes, JSON.stringify(state.promptRecipes));
+    } catch {}
+  }
+
+  function normalizePromptRecipe(recipe, index = 0) {
+    if (!recipe || typeof recipe !== 'object') return null;
+    const prompt = String(recipe.prompt || '').trim();
+    if (!prompt) return null;
+    const styleChipIds = normalizeStyleChipIds(recipe.styleChipIds);
+    const styleChipLabels = getStyleChipsByIds(styleChipIds).map((chip) => chip.label);
+    return {
+      id: String(recipe.id || `recipe-${Date.now()}-${index}`),
+      name: String(recipe.name || buildRecipeName(prompt, styleChipLabels)).slice(0, 64),
+      prompt,
+      styleChipIds,
+      styleChipLabels,
+      params: recipe.params && typeof recipe.params === 'object' ? { ...recipe.params } : {},
+      createdAt: recipe.createdAt || new Date().toISOString(),
+    };
+  }
+
+  function buildRecipeName(prompt, styleLabels = []) {
+    const prefix = styleLabels.length ? `${styleLabels.slice(0, 2).join(' / ')} · ` : '';
+    const text = String(prompt || '').replace(/\s+/g, ' ').trim();
+    return `${prefix}${text.slice(0, 26) || '未命名配方'}`;
+  }
+
+  function saveCurrentRecipe() {
+    const prompt = dom.prompt?.value?.trim() || '';
+    if (!prompt) {
+      showStatus('err', '请先填写提示词，再保存配方');
+      dom.prompt?.focus();
+      return;
+    }
+
+    const selectedChips = getSelectedStyleChips();
+    const metadata = getStyleChipMetadata(selectedChips);
+    const recipe = normalizePromptRecipe({
+      id: `recipe-${Date.now()}`,
+      name: buildRecipeName(prompt, metadata.styleChipLabels),
+      prompt,
+      ...metadata,
+      params: getImageParams(),
+      createdAt: new Date().toISOString(),
+    });
+
+    state.promptRecipes = [
+      recipe,
+      ...state.promptRecipes.filter((item) => item.prompt !== recipe.prompt || item.styleChipIds.join('|') !== recipe.styleChipIds.join('|')),
+    ].slice(0, MAX_PROMPT_RECIPES);
+    savePromptRecipes();
+    renderRecipeList();
+    showStatus('done', '当前提示词配方已保存');
+  }
+
+  function renderRecipeList() {
+    if (!dom.recipeList || !dom.recipeEmpty) return;
+    dom.recipeList.innerHTML = '';
+    dom.recipeEmpty.hidden = state.promptRecipes.length > 0;
+
+    state.promptRecipes.forEach((recipe) => {
+      const item = document.createElement('article');
+      item.className = 'recipe-card';
+      const title = createTextElement('strong', 'recipe-title', recipe.name);
+      const meta = createTextElement('span', 'recipe-meta', recipe.styleChipLabels.length ? recipe.styleChipLabels.join(' / ') : '随机风格池');
+      const prompt = createTextElement('p', 'recipe-text', recipe.prompt);
+      const actions = document.createElement('div');
+      actions.className = 'recipe-actions';
+
+      const useBtn = createTextElement('button', '', '使用');
+      useBtn.type = 'button';
+      useBtn.addEventListener('click', () => applyPromptRecipe(recipe.id));
+      const delBtn = createTextElement('button', 'danger', '删除');
+      delBtn.type = 'button';
+      delBtn.addEventListener('click', () => deletePromptRecipe(recipe.id));
+      actions.append(useBtn, delBtn);
+      item.append(title, meta, prompt, actions);
+      dom.recipeList.appendChild(item);
+    });
+  }
+
+  function applyPromptRecipe(id) {
+    const recipe = state.promptRecipes.find((item) => item.id === id);
+    if (!recipe) return;
+    dom.prompt.value = recipe.prompt;
+    state.selectedStyleChipIds = new Set(normalizeStyleChipIds(recipe.styleChipIds));
+    state.imageParams = { ...state.imageParams, ...(recipe.params || {}) };
+    saveStyleChipSelection();
+    saveImageParams();
+    loadImageParams();
+    renderStyleChips();
+    dom.prompt.focus();
+    showStatus('done', '已载入提示词配方');
+  }
+
+  function deletePromptRecipe(id) {
+    state.promptRecipes = state.promptRecipes.filter((item) => item.id !== id);
+    savePromptRecipes();
+    renderRecipeList();
+  }
+
+  function loadGalleryPreferences() {
+    try {
+      const savedLayout = localStorage.getItem(STORAGE_KEYS.galleryLayout);
+      state.galleryView.layout = savedLayout === 'masonry' ? 'masonry' : 'grid';
+      state.galleryView.showFavoritesOnly = localStorage.getItem(STORAGE_KEYS.galleryFavoritesOnly) === 'true';
+    } catch {
+      state.galleryView.layout = 'grid';
+      state.galleryView.showFavoritesOnly = false;
+    }
+    syncGalleryPreferenceControls();
+  }
+
+  function syncGalleryPreferenceControls() {
+    dom.galleryLayoutRadios?.forEach((radio) => {
+      radio.checked = radio.value === state.galleryView.layout;
+    });
+    if (dom.showFavoritesOnly) dom.showFavoritesOnly.checked = state.galleryView.showFavoritesOnly;
+  }
+
+  function setGalleryLayout(layout) {
+    state.galleryView.layout = layout === 'masonry' ? 'masonry' : 'grid';
+    try {
+      localStorage.setItem(STORAGE_KEYS.galleryLayout, state.galleryView.layout);
+    } catch {}
+    syncGalleryPreferenceControls();
+    renderGalleryWithControls();
+  }
+
+  function setShowFavoritesOnly(show) {
+    state.galleryView.showFavoritesOnly = Boolean(show);
+    try {
+      localStorage.setItem(STORAGE_KEYS.galleryFavoritesOnly, String(state.galleryView.showFavoritesOnly));
+    } catch {}
+    syncGalleryPreferenceControls();
+    renderGalleryWithControls();
+  }
+
   function loadImageParams() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.imageParams) || '{}');
@@ -1367,7 +2050,37 @@
   async function loadGallery() {
     const db = await openDB();
     const records = await readAllRecords(db);
-    state.gallery = records.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
+    state.gallery = records
+      .map(normalizeGalleryRecord)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
+    state.galleryView.compareBestId = state.gallery.find((record) => record.favoriteRank === 'best')?.id || null;
+  }
+
+  function normalizeGalleryRecord(record, index = 0) {
+    if (!record || typeof record !== 'object') return null;
+    const normalized = { ...record };
+    normalized.id = normalized.id ?? `legacy-${Date.now()}-${index}`;
+    normalized.prompt = String(normalized.prompt || '');
+    normalized.sourcePrompt = String(normalized.sourcePrompt || extractCorePrompt(normalized.prompt) || normalized.prompt);
+    normalized.mode = Number(normalized.mode) === 2 ? 2 : 1;
+    normalized.refDataUrl = normalized.refDataUrl || null;
+    normalized.createdAt = normalized.createdAt || new Date().toISOString();
+    normalized.time = normalized.time || new Date(normalized.createdAt).toLocaleString();
+    normalized.params = normalized.params && typeof normalized.params === 'object' ? normalized.params : {};
+    normalized.rating = normalizeRating(normalized.rating);
+    normalized.styleChipIds = normalizeStyleChipIds(normalized.styleChipIds);
+    normalized.styleChipLabels = Array.isArray(normalized.styleChipLabels) && normalized.styleChipLabels.length
+      ? normalized.styleChipLabels.filter(Boolean).slice(0, 4)
+      : getStyleChipsByIds(normalized.styleChipIds).map((chip) => chip.label);
+    if (normalized.favoriteRank !== 'best') delete normalized.favoriteRank;
+    return normalized;
+  }
+
+  function normalizeRating(value) {
+    const number = Number.parseInt(value, 10);
+    if (!Number.isFinite(number)) return 0;
+    return Math.min(5, Math.max(0, number));
   }
 
   async function repairRemoteGalleryRecords() {
@@ -1444,18 +2157,24 @@
     });
   }
 
-  async function addToGallery(dataUrl, prompt, mode, refDataUrl) {
+  async function addToGallery(dataUrl, prompt, mode, refDataUrl, metadata = {}) {
     const now = new Date();
-    const record = {
+    const record = normalizeGalleryRecord({
       id: Date.now() + Math.floor(Math.random() * 1000),
       dataUrl,
       prompt,
+      sourcePrompt: metadata.sourcePrompt || extractCorePrompt(prompt) || prompt,
       mode,
       refDataUrl: refDataUrl || null,
       createdAt: now.toISOString(),
       time: now.toLocaleString(),
       params: getImageParams(),
-    };
+      rating: normalizeRating(metadata.rating),
+      favoriteRank: metadata.favoriteRank === 'best' ? 'best' : undefined,
+      styleChipIds: metadata.styleChipIds || [],
+      styleChipLabels: metadata.styleChipLabels || [],
+      recipeSnapshot: metadata.recipeSnapshot || null,
+    });
     await saveRecord(record);
     state.gallery.unshift(record);
     renderGalleryIfVisible();
@@ -1468,6 +2187,8 @@
     try {
       await deleteRecord(id);
       state.gallery = state.gallery.filter((item) => item.id !== id);
+      state.galleryView.compareSelectedIds.delete(id);
+      if (state.galleryView.compareBestId === id) state.galleryView.compareBestId = null;
       renderGalleryIfVisible();
       updateStorageInfo();
       showStatus('info', '图片记录已删除');
@@ -1479,13 +2200,17 @@
   function renderGalleryWithControls() {
     if (!dom.galleryGrid) return;
     state.galleryDirty = false;
-    const filtered = filterByTags(sortGallery([...state.gallery], state.galleryView.sortMode));
+    const filtered = filterByFavoriteStatus(filterByTags(sortGallery([...state.gallery], state.galleryView.sortMode)));
     dom.galleryGrid.innerHTML = '';
+    const useMasonry = state.galleryView.layout === 'masonry' && !state.galleryView.groupByMode && !state.galleryView.groupByContent;
+    dom.galleryGrid.classList.toggle('masonry-layout', useMasonry);
 
     if (!filtered.length) {
       dom.galleryEmpty.hidden = false;
+      dom.galleryEmpty.textContent = state.gallery.length ? '没有符合当前筛选的图片。' : '暂无生成记录，快去生成第一张图片吧。';
       dom.galleryCount.textContent = '';
       dom.topGalleryBadge.textContent = state.gallery.length ? `(${state.gallery.length})` : '';
+      updateCompareControls();
       updateGalleryStats();
       return;
     }
@@ -1501,6 +2226,7 @@
       filtered.forEach((record) => dom.galleryGrid.appendChild(createGalleryCard(record, filtered)));
     }
 
+    updateCompareControls();
     updateGalleryStats();
   }
 
@@ -1524,6 +2250,11 @@
       const prompt = String(item.prompt || '').toLowerCase();
       return Array.from(state.galleryView.activeFilters).every((tag) => tagMatchesPrompt(tag, prompt));
     });
+  }
+
+  function filterByFavoriteStatus(items) {
+    if (!state.galleryView.showFavoritesOnly) return items;
+    return items.filter(isFavoriteGalleryRecord);
   }
 
   function tagMatchesPrompt(tag, prompt) {
@@ -1576,6 +2307,8 @@
   function createGalleryCard(record, previewItems = state.gallery) {
     const card = document.createElement('article');
     card.className = `gallery-item ${state.galleryView.displayMode === 'card' ? 'card-mode' : 'normal-mode'}`;
+    card.classList.toggle('selected-for-compare', state.galleryView.compareSelectedIds.has(record.id));
+    card.classList.toggle('best-pick', isBestGalleryRecord(record));
 
     const thumb = document.createElement('div');
     thumb.className = 'thumb-wrap';
@@ -1596,7 +2329,25 @@
       thumb.appendChild(image);
     }
 
+    if (isBestGalleryRecord(record)) {
+      thumb.appendChild(createTextElement('span', 'best-badge', '最佳'));
+    }
+
+    const compareBtn = createTextElement('button', 'compare-select-btn', state.galleryView.compareSelectedIds.has(record.id) ? '已选' : '对比');
+    compareBtn.type = 'button';
+    compareBtn.hidden = !state.galleryView.compareMode;
+    compareBtn.setAttribute('aria-pressed', String(state.galleryView.compareSelectedIds.has(record.id)));
+    compareBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleCompareSelection(record.id);
+    });
+    thumb.appendChild(compareBtn);
+
     thumb.addEventListener('click', () => {
+      if (state.galleryView.compareMode) {
+        toggleCompareSelection(record.id);
+        return;
+      }
       const imageIndex = previewItems.findIndex((item) => item.id === record.id);
       openPreviewList(previewItems, imageIndex >= 0 ? imageIndex : 0);
     });
@@ -1638,6 +2389,17 @@
       info.appendChild(refRow);
     }
 
+    if (record.styleChipLabels?.length) {
+      const styleRow = document.createElement('div');
+      styleRow.className = 'gallery-style-row';
+      record.styleChipLabels.slice(0, 4).forEach((label) => {
+        styleRow.appendChild(createTextElement('span', 'gallery-style-pill', label));
+      });
+      info.appendChild(styleRow);
+    }
+
+    info.appendChild(createRatingControl(record));
+
     const promptId = `gallery-prompt-${record.id}`;
     const toggleBtn = createTextElement('button', 'prompt-toggle-btn', '查看提示词');
     toggleBtn.type = 'button';
@@ -1646,13 +2408,32 @@
 
     const actions = document.createElement('div');
     actions.className = 'gallery-actions';
+    const bestBtn = createTextElement('button', 'best-btn', isBestGalleryRecord(record) ? '已是最佳' : '设为最佳');
+    bestBtn.type = 'button';
+    bestBtn.disabled = isBestGalleryRecord(record);
+    bestBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      markBestRecord(record.id);
+    });
+    const backgroundBtn = createTextElement('button', 'set-bg-btn', '设为背景');
+    backgroundBtn.type = 'button';
+    backgroundBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setRecordAsBackground(record.id);
+    });
+    const variantBtn = createTextElement('button', 'variant-btn', '再生变体');
+    variantBtn.type = 'button';
+    variantBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      regenerateVariant(record.id);
+    });
     const delBtn = createTextElement('button', 'del-btn', '删除');
     delBtn.type = 'button';
     delBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       deleteFromGallery(record.id);
     });
-    actions.append(toggleBtn, delBtn);
+    actions.append(toggleBtn, bestBtn, backgroundBtn, variantBtn, delBtn);
 
     const promptPanel = document.createElement('div');
     promptPanel.id = promptId;
@@ -1684,6 +2465,306 @@
     info.append(actions, promptPanel);
     card.appendChild(info);
     return card;
+  }
+
+  function createRatingControl(record) {
+    const wrap = document.createElement('div');
+    wrap.className = 'rating-control';
+    wrap.appendChild(createTextElement('span', 'rating-label', '评分'));
+
+    const stars = document.createElement('div');
+    stars.className = 'rating-stars';
+    const currentRating = normalizeRating(record.rating);
+    for (let value = 1; value <= 5; value += 1) {
+      const button = createTextElement('button', 'star-btn', '★');
+      button.type = 'button';
+      button.classList.toggle('active', value <= currentRating);
+      button.setAttribute('aria-label', `${value} 星`);
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setGalleryRating(record.id, currentRating === value ? 0 : value);
+      });
+      stars.appendChild(button);
+    }
+    wrap.appendChild(stars);
+    return wrap;
+  }
+
+  async function setGalleryRating(id, rating) {
+    const record = state.gallery.find((item) => item.id === id);
+    if (!record) return;
+    record.rating = normalizeRating(rating);
+    record.ratedAt = record.rating ? new Date().toISOString() : null;
+    try {
+      await saveRecord(record);
+      showStatus('done', record.rating ? `已评分 ${record.rating} 星` : '已清除评分');
+      renderGalleryIfVisible();
+      if (!dom.compareTray?.hidden) openCompareTray();
+    } catch (error) {
+      showStatus('err', `评分保存失败：${error.message}`);
+    }
+  }
+
+  function isFavoriteGalleryRecord(record) {
+    return isBestGalleryRecord(record) || normalizeRating(record.rating) >= 4;
+  }
+
+  async function setRecordAsBackground(id) {
+    const record = state.gallery.find((item) => item.id === id);
+    if (!record?.dataUrl) return;
+    try {
+      state.backgroundImage = await compressDataUrlForBackground(record.dataUrl);
+      saveBackgroundImage();
+      applyBackgroundImage();
+      showStatus('done', '已把这张图设为界面背景');
+    } catch (error) {
+      showStatus('err', `设置背景失败：${error.message}`);
+    }
+  }
+
+  function compressDataUrlForBackground(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('图片无法作为背景读取'));
+      image.onload = () => {
+        try {
+          const maxSide = 1920;
+          const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+          const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+          const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('当前浏览器不支持背景压缩');
+          ctx.drawImage(image, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.src = dataUrl;
+    });
+  }
+
+  function regenerateVariant(id) {
+    if (state.generation.active) {
+      showStatus('info', '正在生成中，完成后再生变体');
+      return;
+    }
+    const record = state.gallery.find((item) => item.id === id);
+    if (!record) return;
+    dom.prompt.value = buildVariantPromptForRecord(record);
+    if (record.styleChipIds?.length) {
+      state.selectedStyleChipIds = new Set(normalizeStyleChipIds(record.styleChipIds));
+      saveStyleChipSelection();
+      renderStyleChips();
+    }
+    setSelectedGenCount(3);
+    switchTab('draw');
+    showStatus('info', '已基于这张图生成变体提示词，开始生成 3 张变体');
+    window.setTimeout(() => generate(), 60);
+  }
+
+  function buildVariantPromptForRecord(record) {
+    const sourcePrompt = getRecordSourcePrompt(record);
+    const styleLabels = record.styleChipLabels?.length ? record.styleChipLabels.join(' / ') : '从全部风格池中随机挑选';
+    return [
+      '基于这张已选图片的成功方向，重新生成同主题的变化版本。',
+      `核心主题：${sourcePrompt}`,
+      `沿用或参考风格：${styleLabels}`,
+      '变体要求：不要复制原图，要明显微调镜头距离、光线方向、背景风景、服装细节和人物情绪。',
+      '人物底线：成年真实亚洲女性，脸部必须真实、有辨识度、有一眼万年的惊艳感；背景和服装可以更梦幻、更电影、更插画化，但脸和眼神必须像真实人物。',
+      '出片目标：每一张都像封面、电影海报或收藏级人物图，风景更好看，人物仍是绝对视觉中心。',
+    ].join('\n');
+  }
+
+  function getRecordSourcePrompt(record) {
+    return String(record.sourcePrompt || extractCorePrompt(record.prompt) || record.prompt || '').trim();
+  }
+
+  function extractCorePrompt(prompt) {
+    const text = String(prompt || '').trim();
+    const match = text.match(/核心主题[:：]\s*([^\n]+)/);
+    return (match?.[1] || text).trim();
+  }
+
+  function setSelectedGenCount(count) {
+    state.selectedGenCount = Number(count) || 1;
+    $$('.gen-count-btn').forEach((button) => {
+      button.classList.toggle('active', Number(button.dataset.count || 1) === state.selectedGenCount);
+    });
+  }
+
+  function toggleCompareMode() {
+    state.galleryView.compareMode = !state.galleryView.compareMode;
+    if (!state.galleryView.compareMode) {
+      hideCompareTray();
+    }
+    updateCompareControls();
+    renderGalleryIfVisible();
+  }
+
+  function toggleCompareSelection(id) {
+    const selected = state.galleryView.compareSelectedIds;
+    if (selected.has(id)) {
+      selected.delete(id);
+      hideCompareTray();
+      updateCompareControls();
+      renderGalleryIfVisible();
+      return;
+    }
+    if (selected.size >= 6) {
+      showStatus('info', '最多选择 6 张进行对比');
+      return;
+    }
+    selected.add(id);
+    hideCompareTray();
+    updateCompareControls();
+    renderGalleryIfVisible();
+  }
+
+  function clearCompareSelection() {
+    state.galleryView.compareSelectedIds.clear();
+    hideCompareTray();
+    updateCompareControls();
+    renderGalleryIfVisible();
+  }
+
+  function resetCompareState() {
+    state.galleryView.compareMode = false;
+    state.galleryView.compareSelectedIds.clear();
+    state.galleryView.compareBestId = state.gallery.find((record) => record.favoriteRank === 'best')?.id || null;
+    hideCompareTray();
+    updateCompareControls();
+  }
+
+  function updateCompareControls() {
+    const selectedCount = state.galleryView.compareSelectedIds.size;
+    const canCompare = selectedCount >= 2 && selectedCount <= 6;
+    const label = state.galleryView.compareMode ? '关闭对比模式' : '开启对比模式';
+    if (dom.compareModeBtn) {
+      dom.compareModeBtn.textContent = label;
+      dom.compareModeBtn.classList.toggle('active', state.galleryView.compareMode);
+      dom.compareModeBtn.setAttribute('aria-pressed', String(state.galleryView.compareMode));
+    }
+    if (dom.compareSelectionCount) dom.compareSelectionCount.textContent = `已选 ${selectedCount} / 6`;
+    if (dom.openCompareBtn) dom.openCompareBtn.disabled = !canCompare;
+    if (dom.clearCompareBtn) dom.clearCompareBtn.disabled = selectedCount === 0;
+    if (dom.compareToolbar) dom.compareToolbar.hidden = !state.galleryView.compareMode;
+    if (dom.compareToolbarCount) {
+      dom.compareToolbarCount.textContent = selectedCount
+        ? `已选 ${selectedCount} 张，选择 2-6 张可对比`
+        : '选择 2-6 张进行横向对比';
+    }
+    if (dom.compareToolbarOpenBtn) dom.compareToolbarOpenBtn.disabled = !canCompare;
+    if (dom.compareToolbarClearBtn) dom.compareToolbarClearBtn.disabled = selectedCount === 0;
+  }
+
+  function openCompareTray() {
+    const selectedRecords = getCompareSelectedRecords();
+    if (selectedRecords.length < 2) {
+      showStatus('info', '请至少选择 2 张图片进行对比');
+      return;
+    }
+    if (!dom.compareTray) return;
+    dom.compareTray.innerHTML = '';
+    dom.compareTray.hidden = false;
+
+    const header = document.createElement('div');
+    header.className = 'compare-tray-header';
+    header.append(
+      createTextElement('strong', '', `横向对比 ${selectedRecords.length} 张`),
+      createTextElement('span', '', '点击图片可单张预览，选出最佳会保存在图库记录里'),
+    );
+    const closeBtn = createTextElement('button', 'compare-close-btn', '收起');
+    closeBtn.type = 'button';
+    closeBtn.addEventListener('click', hideCompareTray);
+    header.appendChild(closeBtn);
+
+    const strip = document.createElement('div');
+    strip.className = 'compare-strip';
+    selectedRecords.forEach((record, index) => strip.appendChild(createCompareCard(record, selectedRecords, index)));
+    dom.compareTray.append(header, strip);
+    dom.compareTray.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function createCompareCard(record, selectedRecords, index) {
+    const item = document.createElement('article');
+    item.className = 'compare-item';
+    item.classList.toggle('best-pick', isBestGalleryRecord(record));
+
+    const image = createGalleryImage(record);
+    image.classList.add('compare-image');
+    image.addEventListener('click', () => openPreviewList(selectedRecords, index));
+
+    const meta = document.createElement('div');
+    meta.className = 'compare-meta';
+    const title = createTextElement('strong', '', isBestGalleryRecord(record) ? '当前最佳' : `候选 ${index + 1}`);
+    const time = createTextElement('span', '', formatGalleryTime(record));
+    const styleLine = createTextElement('span', 'compare-style-line', record.styleChipLabels?.length ? record.styleChipLabels.join(' / ') : '随机风格');
+    const prompt = createTextElement('p', 'compare-prompt-text', record.prompt || '这条记录没有保存提示词。');
+    const rating = createRatingControl(record);
+    const actions = document.createElement('div');
+    actions.className = 'compare-actions';
+    const bestBtn = createTextElement('button', 'best-btn', isBestGalleryRecord(record) ? '已是最佳' : '设为最佳');
+    bestBtn.type = 'button';
+    bestBtn.disabled = isBestGalleryRecord(record);
+    bestBtn.addEventListener('click', () => markBestRecord(record.id));
+    const backgroundBtn = createTextElement('button', 'set-bg-btn', '设背景');
+    backgroundBtn.type = 'button';
+    backgroundBtn.addEventListener('click', () => setRecordAsBackground(record.id));
+    const variantBtn = createTextElement('button', 'variant-btn', '再生');
+    variantBtn.type = 'button';
+    variantBtn.addEventListener('click', () => regenerateVariant(record.id));
+    const removeBtn = createTextElement('button', 'compare-remove-btn', '移出');
+    removeBtn.type = 'button';
+    removeBtn.addEventListener('click', () => toggleCompareSelection(record.id));
+    actions.append(bestBtn, backgroundBtn, variantBtn, removeBtn);
+    meta.append(title, time, styleLine, rating, prompt, actions);
+    item.append(image, meta);
+    return item;
+  }
+
+  function hideCompareTray() {
+    if (!dom.compareTray) return;
+    dom.compareTray.hidden = true;
+    dom.compareTray.innerHTML = '';
+  }
+
+  function getCompareSelectedRecords() {
+    return state.gallery.filter((record) => state.galleryView.compareSelectedIds.has(record.id)).slice(0, 6);
+  }
+
+  function isBestGalleryRecord(record) {
+    return record.favoriteRank === 'best' || state.galleryView.compareBestId === record.id;
+  }
+
+  async function markBestRecord(id) {
+    const target = state.gallery.find((record) => record.id === id);
+    if (!target) return;
+    try {
+      const updates = state.gallery
+        .filter((record) => record.favoriteRank === 'best' || record.id === id)
+        .map((record) => {
+          if (record.id === id) {
+            record.favoriteRank = 'best';
+            record.favoritedAt = new Date().toISOString();
+            record.rating = Math.max(normalizeRating(record.rating), 5);
+          } else {
+            delete record.favoriteRank;
+            delete record.favoritedAt;
+          }
+          return saveRecord(record);
+        });
+      await Promise.all(updates);
+      state.galleryView.compareBestId = id;
+      showStatus('done', '已标记为最佳图片');
+      renderGalleryIfVisible();
+      if (!dom.compareTray?.hidden) openCompareTray();
+    } catch (error) {
+      showStatus('err', `标记最佳失败：${error.message}`);
+    }
   }
 
   function createGalleryImage(record) {
@@ -1847,19 +2928,24 @@
     appendEvent('event', `开始批量生成 ${count} 张图片`);
 
     try {
+      const batchSeed = state.generation.startTime || Date.now();
+      const recipeSnapshot = getCurrentRecipeSnapshot(prompt);
+      const enhanceFirstPrompt = state.selectedStyleChipIds.size > 0;
       for (let index = 0; index < count; index += 1) {
         if (state.generation.cancelRequested) break;
 
-        const batchSeed = state.generation.startTime || Date.now();
-        const actualPrompt = index === 0 ? prompt : enhancePrompt(prompt, index - 1, batchSeed);
-        const label = index === 0 ? '原始提示词' : `增强版本 ${index}`;
+        const variationIndex = enhanceFirstPrompt ? index : index - 1;
+        const variation = index === 0 && !enhanceFirstPrompt ? null : buildPromptVariation(Math.max(0, variationIndex), batchSeed);
+        const actualPrompt = variation ? enhancePrompt(prompt, Math.max(0, variationIndex), batchSeed, variation) : prompt;
+        const label = index === 0 && !enhanceFirstPrompt ? '原始提示词' : `风格增强 ${Math.max(1, index + (enhanceFirstPrompt ? 1 : 0))}`;
+        const metadata = createGenerationMetadata(prompt, variation, recipeSnapshot);
         appendEvent('event', `生成第 ${index + 1}/${count} 张：${label}`);
 
         try {
           const result = await generateSingleImageWithRetry(actualPrompt, label, baseUrl, apiKey, model, null);
           state.generation.success += 1;
           try {
-            await storeGeneratedImageResult(result, label, `img-${Date.now()}-${index}`, actualPrompt, 1, null);
+            await storeGeneratedImageResult(result, label, `img-${Date.now()}-${index}`, actualPrompt, 1, null, metadata);
           } catch (storeError) {
             appendEvent('event', storeError.message);
             showStatus('err', storeError.message, 9000);
@@ -1896,7 +2982,7 @@
       const refDataUrl = state.refImages[0].dataUrl;
       const result = await generateSingleImageWithRetry(prompt, '编辑结果', baseUrl, apiKey, model, refDataUrl);
       try {
-        await storeGeneratedImageResult(result, '编辑结果', `img-${Date.now()}-single`, prompt, 2, refDataUrl);
+        await storeGeneratedImageResult(result, '编辑结果', `img-${Date.now()}-single`, prompt, 2, refDataUrl, createGenerationMetadata(prompt, null, getCurrentRecipeSnapshot(prompt)));
       } catch (storeError) {
         appendEvent('event', storeError.message);
         showStatus('err', storeError.message, 9000);
@@ -2314,26 +3400,38 @@
     }
   }
 
-  function enhancePrompt(basePrompt, index, batchSeed = 0) {
+  function enhancePrompt(basePrompt, index, batchSeed = 0, suppliedVariation = null) {
     const prompt = String(basePrompt || '').trim();
-    const variation = buildPromptVariation(index, batchSeed);
+    const variation = suppliedVariation || buildPromptVariation(index, batchSeed);
+    const styleChipLine = variation.styleChipLabels?.length
+      ? `本次风格芯片：${variation.styleChipLabels.join(' / ')}。${variation.styleChipPrompt}`
+      : '';
     return [
       `核心主题：${prompt}`,
       `增强版本：${index + 1}。编号只用于生成差异化，不要把编号、文字或水印画进图片。`,
       `人物原型：${variation.archetype}。`,
       `美貌与冲击力：${variation.beauty}。`,
-      `本次增强目标：在不改变核心主体和用户要求的前提下，生成与原始提示词版本以及其它增强版本明显不同的一张人物图；每一张都要有倾国倾城、一眼万年的震撼感，不要只做同义词替换，要同时改变人物气质、镜头、景别、光线、氛围、构图、色彩、场景调度、风格和细节侧重点。`,
+      styleChipLine,
+      `本次增强目标：在不改变核心主体和用户要求的前提下，生成与原始提示词版本以及其它增强版本明显不同的一张真实人物图；人物是绝对核心，每一张都要有倾国倾城、一眼万年的震撼感，优先体现真实长相、眼神、气质、宿命感和电影感。`,
+      `真实人物约束：成年真实亚洲女性，脸部必须有真实人像质感，长相可信但极其惊艳，每一张脸都要有辨识度；皮肤可以漂亮、细腻、通透，但不要塑料皮肤、过度磨皮、AI 假脸、瓷娃娃感或网红模板脸。`,
+      `展示风格原则：整体画面可以真实摄影、电影剧照、油画、厚涂插画、高级插画封面、动画电影感、东方奇幻感、科幻感或史诗感；不同展示风格都欢迎。`,
+      `真实脸底线：不管画面多梦幻或多插画化，人物脸和眼神都要保留真人结构、可信光影、自然皮肤质感和有辨识度的五官；不要 Q 版、低幼卡通、极端二次元大眼、CG 娃娃、游戏建模脸、AI 假脸或网红模板脸。`,
+      `背景原则：背景不必固定为野外，可以是自然、城市、室内、庄园、剧院、年代空间、花海、雪林、雨巷、科幻浮城或极简棚拍；风景越好看越好，但必须托住人物气质，不能抢走脸和眼神。`,
       `镜头与景别：${variation.framing}；${variation.lens}。`,
       `光线与氛围：${variation.lighting}；${variation.atmosphere}。`,
       `色彩方案：${variation.palette}。`,
       `场景调度：${variation.scene}。`,
+      `背景风景：${variation.background}。`,
       `风格方向：${variation.style}。`,
       `细节要求：${variation.detail}。`,
-      `质量约束：主体结构准确，脸、眼睛、手部、牙齿、身体比例自然；不要文字、水印、logo、多余肢体、畸形手指、网红模板脸、廉价影楼感、过度磨皮、低清晰度、重复人物。`,
+      `质量约束：主体结构准确，脸、眼睛、手部、牙齿、身体比例自然；正式穿着、华丽礼服或幻想服饰都要符合人物气质；不要文字、水印、logo、多余肢体、畸形手指、网红模板脸、廉价影楼感、过度磨皮、低清晰度、重复人物。`,
     ].join('\n');
   }
 
   function buildPromptVariation(index, batchSeed = 0) {
+    const styleChips = pickStyleChipsForVariation(index, batchSeed);
+    const styleChipPrompt = styleChips.map((chip) => chip.prompt).join(' ');
+    const styleAxis = pickPromptAxis('style', index, 9, 6, batchSeed);
     return {
       archetype: pickPromptAxis('archetype', index, 5, 8, batchSeed),
       beauty: pickPromptAxis('beauty', index, 7, 9, batchSeed),
@@ -2343,8 +3441,34 @@
       atmosphere: pickPromptAxis('atmosphere', index, 9, 3, batchSeed),
       palette: pickPromptAxis('palette', index, 3, 4, batchSeed),
       scene: pickPromptAxis('scene', index, 7, 5, batchSeed),
-      style: pickPromptAxis('style', index, 9, 6, batchSeed),
+      background: pickPromptAxis('background', index, 3, 8, batchSeed),
+      style: [styleAxis, styleChipPrompt].filter(Boolean).join(' '),
+      styleChipPrompt,
+      styleChipIds: styleChips.map((chip) => chip.id),
+      styleChipLabels: styleChips.map((chip) => chip.label),
       detail: pickPromptAxis('detail', index, 1, 7, batchSeed),
+    };
+  }
+
+  function getCurrentRecipeSnapshot(prompt) {
+    const selectedChips = getSelectedStyleChips();
+    const metadata = getStyleChipMetadata(selectedChips);
+    return {
+      prompt: String(prompt || '').trim(),
+      ...metadata,
+      params: getImageParams(),
+      capturedAt: new Date().toISOString(),
+    };
+  }
+
+  function createGenerationMetadata(sourcePrompt, variation = null, recipeSnapshot = null) {
+    const chips = variation?.styleChipIds?.length
+      ? getStyleChipsByIds(variation.styleChipIds)
+      : getSelectedStyleChips();
+    return {
+      sourcePrompt,
+      ...getStyleChipMetadata(chips),
+      recipeSnapshot,
     };
   }
 
@@ -2398,12 +3522,12 @@
     return fullMessage;
   }
 
-  async function storeGeneratedImageResult(result, label, imageName, prompt, mode, refDataUrl) {
+  async function storeGeneratedImageResult(result, label, imageName, prompt, mode, refDataUrl, metadata = {}) {
     try {
       const resolved = await resolveImageResult(result.imageSource, result.mediaAuth);
       await addResultCard(label, imageName, prompt, resolved.dataUrl, resolved.blob);
       await yieldToBrowser();
-      await addToGallery(resolved.dataUrl, prompt, mode, refDataUrl);
+      await addToGallery(resolved.dataUrl, prompt, mode, refDataUrl, metadata);
       await yieldToBrowser();
       return resolved;
     } catch (error) {
@@ -2785,7 +3909,12 @@
       apiConfigs: state.apiConfigs,
       activeApiId: state.activeApiId,
       promptHistory: state.promptHistory,
+      promptRecipes: state.promptRecipes,
+      selectedStyleChipIds: [...state.selectedStyleChipIds],
       imageParams: state.imageParams,
+      galleryLayout: state.galleryView.layout,
+      galleryFavoritesOnly: state.galleryView.showFavoritesOnly,
+      backgroundImage: state.backgroundImage,
       autoDownload: state.autoDownload,
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -2812,24 +3941,41 @@
       const message = `确定导入数据吗？\n\n图片：${data.gallery.length} 张\nAPI 配置：${data.apiConfigs?.length || 0} 个\n提示词历史：${data.promptHistory?.length || 0} 条\n\n当前数据会被覆盖。`;
       if (!confirm(message)) return;
 
-      state.gallery = data.gallery;
+      state.gallery = data.gallery.map(normalizeGalleryRecord).filter(Boolean);
       state.apiConfigs = Array.isArray(data.apiConfigs) && data.apiConfigs.length
-        ? data.apiConfigs
+        ? removeRemovedDefaultConfigs(data.apiConfigs)
         : structuredCloneSafe(DEFAULT_CONFIGS);
+      if (state.apiConfigs.length === 0) state.apiConfigs = structuredCloneSafe(DEFAULT_CONFIGS);
       const importedActiveId = data.activeApiId || state.apiConfigs[0]?.id || null;
       state.activeApiId = state.apiConfigs.some((config) => config.id === importedActiveId)
         ? importedActiveId
         : state.apiConfigs[0]?.id || null;
       state.promptHistory = Array.isArray(data.promptHistory) ? data.promptHistory.slice(0, MAX_PROMPT_HISTORY) : [];
+      state.promptRecipes = Array.isArray(data.promptRecipes)
+        ? data.promptRecipes.map(normalizePromptRecipe).filter(Boolean).slice(0, MAX_PROMPT_RECIPES)
+        : [];
+      state.selectedStyleChipIds = new Set(normalizeStyleChipIds(data.selectedStyleChipIds));
       state.imageParams = { ...state.imageParams, ...(data.imageParams || {}) };
+      state.galleryView.layout = data.galleryLayout === 'masonry' ? 'masonry' : 'grid';
+      state.galleryView.showFavoritesOnly = Boolean(data.galleryFavoritesOnly);
+      state.backgroundImage = typeof data.backgroundImage === 'string' ? data.backgroundImage : '';
       state.autoDownload = Boolean(data.autoDownload);
 
       await replaceGalleryRecords(state.gallery);
+      resetCompareState();
       saveApiConfigs();
       savePromptHistory();
+      savePromptRecipes();
+      saveStyleChipSelection();
       saveImageParams();
+      try {
+        localStorage.setItem(STORAGE_KEYS.galleryLayout, state.galleryView.layout);
+        localStorage.setItem(STORAGE_KEYS.galleryFavoritesOnly, String(state.galleryView.showFavoritesOnly));
+      } catch {}
+      saveBackgroundImage();
       saveAutoDownloadSetting();
       loadImageParams();
+      applyBackgroundImage();
       renderAll();
       dom.autoDownloadCheckbox.checked = state.autoDownload;
       showStatus('done', `数据导入成功，已导入 ${state.gallery.length} 张图片`);
@@ -2861,9 +4007,14 @@
           bytes: textToUtf8Bytes(JSON.stringify({
             id: item.id,
             prompt: item.prompt,
+            sourcePrompt: item.sourcePrompt,
             mode: item.mode,
             time: item.time,
             params: item.params,
+            rating: item.rating,
+            favoriteRank: item.favoriteRank,
+            styleChipIds: item.styleChipIds,
+            styleChipLabels: item.styleChipLabels,
           }, null, 2)),
         });
       });
@@ -2998,17 +4149,24 @@
 
     try {
       state.gallery = [];
+      resetCompareState();
       await replaceGalleryRecords([]);
       Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
       state.apiConfigs = structuredCloneSafe(DEFAULT_CONFIGS);
       state.activeApiId = state.apiConfigs[0].id;
       state.promptHistory = [];
+      state.promptRecipes = [];
+      state.selectedStyleChipIds = new Set();
       state.refImages = [];
       state.backgroundImage = '';
       state.autoDownload = false;
       state.imageParams = { size: '1024x1024', quality: 'standard', style: 'natural' };
+      state.galleryView.layout = 'grid';
+      state.galleryView.showFavoritesOnly = false;
       saveApiConfigs();
       savePromptHistory();
+      savePromptRecipes();
+      saveStyleChipSelection();
       saveImageParams();
       saveAutoDownloadSetting();
       loadImageParams();
@@ -3037,6 +4195,7 @@
     try {
       state.gallery = [];
       state.currentResults = [];
+      resetCompareState();
       await replaceGalleryRecords([]);
       if (dom.resultGrid) dom.resultGrid.innerHTML = '';
       dom.resultArea?.classList.remove('active');

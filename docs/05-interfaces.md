@@ -123,9 +123,15 @@ Accept: text/event-stream
 | `img_gen_api_configs` | `ApiConfig[]` | API 配置列表 |
 | `img_gen_active_api` | `string` | 当前配置 ID |
 | `img_gen_prompt_history` | `string[]` | 提示词历史 |
+| `img_gen_prompt_recipes` | `PromptRecipe[]` | 提示词配方库，最多 20 条 |
+| `img_gen_selected_style_chips` | `string[]` | 当前选中的风格芯片 ID；为空时表示从全部风格池随机 |
 | `img_gen_image_params` | `ImageParams` | 尺寸、质量、风格 |
 | `img_gen_background_image` | `string` | 压缩后的自定义背景 data URL |
+| `img_gen_gallery_layout` | `"grid" / "masonry"` | 展馆布局偏好 |
+| `img_gen_gallery_favorites_only` | `"true" / "false"` | 是否只看精选 |
 | `img_gen_auto_download` | `"true" / "false"` | 自动下载开关 |
+
+自适应界面主题不新增 localStorage key。页面只持久化 `img_gen_background_image`；加载背景图后，`app.js` 会在运行时分析图片像素并写入 CSS 变量，恢复默认背景时同步清除这些运行时变量。
 
 ## 6. IndexedDB
 
@@ -140,7 +146,8 @@ Accept: text/event-stream
 {
   "id": 1780000000000,
   "dataUrl": "data:image/png;base64,...",
-  "prompt": "实际送入图片模型的提示词。批量文生图第 1 张保存原提示词，第 2 张起保存结构化增强后的提示词。",
+  "prompt": "实际送入图片模型的提示词。",
+  "sourcePrompt": "用户原始提示词或从增强提示词里提取出的核心主题。",
   "mode": 1,
   "refDataUrl": null,
   "createdAt": "2026-06-19T09:00:00.000Z",
@@ -149,11 +156,24 @@ Accept: text/event-stream
     "size": "1024x1024",
     "quality": "standard",
     "style": "natural"
+  },
+  "rating": 0,
+  "favoriteRank": "best",
+  "favoritedAt": "2026-07-01T09:00:00.000Z",
+  "styleChipIds": ["movie-still", "dreamscape"],
+  "styleChipLabels": ["电影剧照", "梦幻风景"],
+  "recipeSnapshot": {
+    "prompt": "保存生成当刻的用户提示词",
+    "styleChipIds": [],
+    "styleChipLabels": [],
+    "params": {},
+    "capturedAt": "2026-07-01T09:00:00.000Z"
   }
 }
 ```
 
 `mode = 1` 表示文生图，`mode = 2` 表示图生图。
+`rating` 范围是 0-5。`favoriteRank = "best"` 表示图库当前最佳，进入精选筛选；4 星及以上也进入精选筛选。旧记录加载时会自动补齐缺失的新字段。
 
 ## 7. 导入导出 JSON
 
@@ -163,16 +183,21 @@ Accept: text/event-stream
   "exportDate": "2026-06-19T09:00:00.000Z",
   "gallery": [],
   "apiConfigs": [],
-  "activeApiId": "default-openai",
+  "activeApiId": "default-picture-newapi",
   "promptHistory": [],
+  "promptRecipes": [],
+  "selectedStyleChipIds": [],
   "imageParams": {},
+  "galleryLayout": "grid",
+  "galleryFavoritesOnly": false,
+  "backgroundImage": "",
   "autoDownload": false
 }
 ```
 
 导入会覆盖当前本地数据；导入前必须确认。
 
-导入后会校验 `activeApiId` 是否存在于导入后的 `apiConfigs`。如果不存在，自动回退到第一项配置，避免当前配置显示和生成表单失配。
+导入后会移除旧的默认示例配置 `default-openai`、`default-custom`，并校验 `activeApiId` 是否存在于导入后的 `apiConfigs`。如果不存在，自动回退到第一项配置，避免当前配置显示和生成表单失配。
 
 “清除所有图片”只清空 IndexedDB `records` 和当前结果区 `currentResults`，不删除 localStorage 中的 API 配置、当前配置 ID、提示词历史、图片参数和自定义背景。
 
