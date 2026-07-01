@@ -153,17 +153,6 @@
             <label for="prompt">图片描述（提示词）</label>
             <textarea id="prompt" placeholder="例如：一只在雨中奔跑的柴犬，皮克斯动画风格"></textarea>
 
-            <div class="prompt-examples">
-              <span class="examples-label">快速示例：</span>
-              <div class="examples-buttons">
-                <button type="button" class="example-btn" data-prompt="一只可爱的橘猫坐在窗台上看着外面的雨，温馨的室内光线，电影级画质">可爱猫咪</button>
-                <button type="button" class="example-btn" data-prompt="未来科技城市夜景，霓虹灯闪烁，赛博朋克风格，超高清">赛博朋克</button>
-                <button type="button" class="example-btn" data-prompt="宁静的日式庭院，樱花飘落，小桥流水，水彩画风格">日式庭院</button>
-                <button type="button" class="example-btn" data-prompt="宇宙中的星云，五彩斑斓的星际尘埃，深空摄影风格">星空宇宙</button>
-                <button type="button" class="example-btn" data-prompt="一杯冒着热气的咖啡，旁边放着打开的书，温暖的下午阳光，静物摄影">咖啡时光</button>
-              </div>
-            </div>
-
             <section class="style-chip-panel">
               <div class="panel-title-row">
                 <label>风格芯片</label>
@@ -300,72 +289,18 @@
               <label><input type="radio" name="displayMode" value="normal" /> 正常显示</label>
             </div>
           </section>
-          <section class="panel-section">
-            <label for="sortMode">排序方式</label>
-            <select id="sortMode">
-              <option value="time-desc">时间倒序（最新在前）</option>
-              <option value="time-asc">时间正序（最早在前）</option>
-              <option value="random">随机打乱</option>
-            </select>
-          </section>
-          <section class="panel-section">
-            <label>分组显示</label>
-            <div class="checkbox-group">
-              <label><input type="checkbox" id="groupByMode" /> 按生成模式分组</label>
-              <label><input type="checkbox" id="groupByContent" /> 按内容特征分组</label>
-            </div>
-          </section>
-          <section class="panel-section">
-            <label>展馆布局</label>
-            <div class="radio-group">
-              <label><input type="radio" name="galleryLayout" value="grid" checked /> 等宽网格</label>
-              <label><input type="radio" name="galleryLayout" value="masonry" /> 瀑布流</label>
-            </div>
-          </section>
-          <section class="panel-section">
-            <label>精选筛选</label>
-            <div class="checkbox-group">
-              <label><input type="checkbox" id="showFavoritesOnly" /> 只看精选（4 星以上或最佳）</label>
-            </div>
-          </section>
           <section class="panel-section stats">
             <label>统计信息</label>
             <div><span>文生图：</span><strong id="text2imgCount">0</strong></div>
             <div><span>图生图：</span><strong id="img2imgCount">0</strong></div>
             <div><span>总计：</span><strong id="totalCount">0</strong></div>
           </section>
-          <section class="panel-section">
-            <label>快速筛选</label>
-            <div class="tag-filters" id="tagFilters">
-              <button class="tag-filter" type="button" data-tag="woman">女性</button>
-              <button class="tag-filter" type="button" data-tag="man">男性</button>
-              <button class="tag-filter" type="button" data-tag="anime">动漫</button>
-              <button class="tag-filter" type="button" data-tag="realistic">写实</button>
-              <button class="tag-filter" type="button" data-tag="landscape">风景</button>
-              <button class="tag-filter" type="button" data-tag="asian">亚洲</button>
-            </div>
-          </section>
-          <section class="panel-section compare-panel">
-            <label>对比精选</label>
-            <button id="compareModeBtn" class="compare-mode-btn" type="button" aria-pressed="false">开启对比模式</button>
-            <div class="compare-mini">
-              <span id="compareSelectionCount">已选 0 / 6</span>
-              <button id="openCompareBtn" type="button" disabled>打开对比</button>
-              <button id="clearCompareBtn" type="button" disabled>清空</button>
-            </div>
-          </section>
         </aside>
 
         <section class="gallery-card">
           <div class="gallery-card-header">
             <h2>生成记录展馆 <span id="galleryCount" class="gallery-count"></span></h2>
-            <div id="compareToolbar" class="compare-toolbar" hidden>
-              <span id="compareToolbarCount">选择 2-6 张进行横向对比</span>
-              <button id="compareToolbarOpenBtn" type="button" disabled>对比</button>
-              <button id="compareToolbarClearBtn" type="button">清空</button>
-            </div>
           </div>
-          <section id="compareTray" class="compare-tray" hidden aria-label="图片横向对比"></section>
           <div id="galleryGrid" class="gallery-grid"></div>
           <div id="galleryEmpty" class="gallery-empty" hidden>暂无生成记录，快去生成第一张图片吧。</div>
         </section>

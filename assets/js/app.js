@@ -343,15 +343,6 @@
     },
     galleryView: {
       displayMode: 'card',
-      layout: 'grid',
-      sortMode: 'time-desc',
-      groupByMode: false,
-      groupByContent: false,
-      showFavoritesOnly: false,
-      activeFilters: new Set(),
-      compareMode: false,
-      compareSelectedIds: new Set(),
-      compareBestId: null,
     },
     preview: {
       index: 0,
@@ -480,24 +471,9 @@
       galleryGrid: byId('galleryGrid'),
       galleryCount: byId('galleryCount'),
       galleryEmpty: byId('galleryEmpty'),
-      compareModeBtn: byId('compareModeBtn'),
-      compareSelectionCount: byId('compareSelectionCount'),
-      openCompareBtn: byId('openCompareBtn'),
-      clearCompareBtn: byId('clearCompareBtn'),
-      compareToolbar: byId('compareToolbar'),
-      compareToolbarCount: byId('compareToolbarCount'),
-      compareToolbarOpenBtn: byId('compareToolbarOpenBtn'),
-      compareToolbarClearBtn: byId('compareToolbarClearBtn'),
-      compareTray: byId('compareTray'),
       text2imgCount: byId('text2imgCount'),
       img2imgCount: byId('img2imgCount'),
       totalCount: byId('totalCount'),
-      sortMode: byId('sortMode'),
-      groupByMode: byId('groupByMode'),
-      groupByContent: byId('groupByContent'),
-      galleryLayoutRadios: $$('input[name="galleryLayout"]'),
-      showFavoritesOnly: byId('showFavoritesOnly'),
-      tagFilters: byId('tagFilters'),
       toggleDataManager: byId('toggleDataManager'),
       dataManagerContent: byId('dataManagerContent'),
       storageImageCount: byId('storageImageCount'),
@@ -569,13 +545,6 @@
       input?.addEventListener('change', saveImageParams);
     });
 
-    $$('.example-btn').forEach((button) => {
-      button.addEventListener('click', () => {
-        dom.prompt.value = button.dataset.prompt || '';
-        dom.prompt.focus();
-      });
-    });
-
     dom.promptHistoryBtn?.addEventListener('click', () => {
       dom.promptHistoryPanel.classList.toggle('open');
     });
@@ -606,45 +575,6 @@
         renderGalleryWithControls();
       });
     });
-    dom.sortMode?.addEventListener('change', () => {
-      state.galleryView.sortMode = dom.sortMode.value;
-      renderGalleryWithControls();
-    });
-    dom.groupByMode?.addEventListener('change', () => {
-      state.galleryView.groupByMode = dom.groupByMode.checked;
-      renderGalleryWithControls();
-    });
-    dom.groupByContent?.addEventListener('change', () => {
-      state.galleryView.groupByContent = dom.groupByContent.checked;
-      renderGalleryWithControls();
-    });
-    dom.galleryLayoutRadios?.forEach((radio) => {
-      radio.addEventListener('change', () => {
-        if (radio.checked) setGalleryLayout(radio.value);
-      });
-    });
-    dom.showFavoritesOnly?.addEventListener('change', () => {
-      setShowFavoritesOnly(Boolean(dom.showFavoritesOnly?.checked));
-    });
-    $$('.tag-filter').forEach((button) => {
-      button.addEventListener('click', () => {
-        const tag = button.dataset.tag;
-        if (state.galleryView.activeFilters.has(tag)) {
-          state.galleryView.activeFilters.delete(tag);
-          button.classList.remove('active');
-        } else {
-          state.galleryView.activeFilters.add(tag);
-          button.classList.add('active');
-        }
-        renderGalleryWithControls();
-      });
-    });
-    dom.compareModeBtn?.addEventListener('click', toggleCompareMode);
-    dom.openCompareBtn?.addEventListener('click', openCompareTray);
-    dom.clearCompareBtn?.addEventListener('click', clearCompareSelection);
-    dom.compareToolbarOpenBtn?.addEventListener('click', openCompareTray);
-    dom.compareToolbarClearBtn?.addEventListener('click', clearCompareSelection);
-
     dom.toggleDataManager?.addEventListener('click', () => {
       dom.dataManagerContent.classList.toggle('collapsed');
       dom.toggleDataManager.classList.toggle('collapsed');
@@ -1864,39 +1794,9 @@
 
   function loadGalleryPreferences() {
     try {
-      const savedLayout = localStorage.getItem(STORAGE_KEYS.galleryLayout);
-      state.galleryView.layout = savedLayout === 'masonry' ? 'masonry' : 'grid';
-      state.galleryView.showFavoritesOnly = localStorage.getItem(STORAGE_KEYS.galleryFavoritesOnly) === 'true';
-    } catch {
-      state.galleryView.layout = 'grid';
-      state.galleryView.showFavoritesOnly = false;
-    }
-    syncGalleryPreferenceControls();
-  }
-
-  function syncGalleryPreferenceControls() {
-    dom.galleryLayoutRadios?.forEach((radio) => {
-      radio.checked = radio.value === state.galleryView.layout;
-    });
-    if (dom.showFavoritesOnly) dom.showFavoritesOnly.checked = state.galleryView.showFavoritesOnly;
-  }
-
-  function setGalleryLayout(layout) {
-    state.galleryView.layout = layout === 'masonry' ? 'masonry' : 'grid';
-    try {
-      localStorage.setItem(STORAGE_KEYS.galleryLayout, state.galleryView.layout);
+      localStorage.removeItem(STORAGE_KEYS.galleryLayout);
+      localStorage.removeItem(STORAGE_KEYS.galleryFavoritesOnly);
     } catch {}
-    syncGalleryPreferenceControls();
-    renderGalleryWithControls();
-  }
-
-  function setShowFavoritesOnly(show) {
-    state.galleryView.showFavoritesOnly = Boolean(show);
-    try {
-      localStorage.setItem(STORAGE_KEYS.galleryFavoritesOnly, String(state.galleryView.showFavoritesOnly));
-    } catch {}
-    syncGalleryPreferenceControls();
-    renderGalleryWithControls();
   }
 
   function loadImageParams() {
@@ -2054,7 +1954,6 @@
       .map(normalizeGalleryRecord)
       .filter(Boolean)
       .sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
-    state.galleryView.compareBestId = state.gallery.find((record) => record.favoriteRank === 'best')?.id || null;
   }
 
   function normalizeGalleryRecord(record, index = 0) {
@@ -2068,19 +1967,13 @@
     normalized.createdAt = normalized.createdAt || new Date().toISOString();
     normalized.time = normalized.time || new Date(normalized.createdAt).toLocaleString();
     normalized.params = normalized.params && typeof normalized.params === 'object' ? normalized.params : {};
-    normalized.rating = normalizeRating(normalized.rating);
+    delete normalized.rating;
+    delete normalized.favoriteRank;
     normalized.styleChipIds = normalizeStyleChipIds(normalized.styleChipIds);
     normalized.styleChipLabels = Array.isArray(normalized.styleChipLabels) && normalized.styleChipLabels.length
       ? normalized.styleChipLabels.filter(Boolean).slice(0, 4)
       : getStyleChipsByIds(normalized.styleChipIds).map((chip) => chip.label);
-    if (normalized.favoriteRank !== 'best') delete normalized.favoriteRank;
     return normalized;
-  }
-
-  function normalizeRating(value) {
-    const number = Number.parseInt(value, 10);
-    if (!Number.isFinite(number)) return 0;
-    return Math.min(5, Math.max(0, number));
   }
 
   async function repairRemoteGalleryRecords() {
@@ -2169,8 +2062,6 @@
       createdAt: now.toISOString(),
       time: now.toLocaleString(),
       params: getImageParams(),
-      rating: normalizeRating(metadata.rating),
-      favoriteRank: metadata.favoriteRank === 'best' ? 'best' : undefined,
       styleChipIds: metadata.styleChipIds || [],
       styleChipLabels: metadata.styleChipLabels || [],
       recipeSnapshot: metadata.recipeSnapshot || null,
@@ -2183,12 +2074,9 @@
   }
 
   async function deleteFromGallery(id) {
-    if (!confirm('确定删除这张图片记录吗？')) return;
     try {
       await deleteRecord(id);
       state.gallery = state.gallery.filter((item) => item.id !== id);
-      state.galleryView.compareSelectedIds.delete(id);
-      if (state.galleryView.compareBestId === id) state.galleryView.compareBestId = null;
       renderGalleryIfVisible();
       updateStorageInfo();
       showStatus('info', '图片记录已删除');
@@ -2200,17 +2088,15 @@
   function renderGalleryWithControls() {
     if (!dom.galleryGrid) return;
     state.galleryDirty = false;
-    const filtered = filterByFavoriteStatus(filterByTags(sortGallery([...state.gallery], state.galleryView.sortMode)));
+    const filtered = sortGallery([...state.gallery]);
     dom.galleryGrid.innerHTML = '';
-    const useMasonry = state.galleryView.layout === 'masonry' && !state.galleryView.groupByMode && !state.galleryView.groupByContent;
-    dom.galleryGrid.classList.toggle('masonry-layout', useMasonry);
+    dom.galleryGrid.classList.remove('masonry-layout');
 
     if (!filtered.length) {
       dom.galleryEmpty.hidden = false;
-      dom.galleryEmpty.textContent = state.gallery.length ? '没有符合当前筛选的图片。' : '暂无生成记录，快去生成第一张图片吧。';
+      dom.galleryEmpty.textContent = '暂无生成记录，快去生成第一张图片吧。';
       dom.galleryCount.textContent = '';
       dom.topGalleryBadge.textContent = state.gallery.length ? `(${state.gallery.length})` : '';
-      updateCompareControls();
       updateGalleryStats();
       return;
     }
@@ -2219,42 +2105,13 @@
     dom.galleryCount.textContent = `(${filtered.length} 张)`;
     dom.topGalleryBadge.textContent = `(${state.gallery.length})`;
 
-    if (state.galleryView.groupByMode || state.galleryView.groupByContent) {
-      const groups = buildGalleryGroups(filtered);
-      renderGroupedGallery(groups, filtered);
-    } else {
-      filtered.forEach((record) => dom.galleryGrid.appendChild(createGalleryCard(record, filtered)));
-    }
+    filtered.forEach((record) => dom.galleryGrid.appendChild(createGalleryCard(record, filtered)));
 
-    updateCompareControls();
     updateGalleryStats();
   }
 
-  function sortGallery(items, mode) {
-    if (mode === 'time-asc') {
-      return items.sort((a, b) => new Date(a.createdAt || a.time || 0) - new Date(b.createdAt || b.time || 0));
-    }
-    if (mode === 'random') {
-      for (let index = items.length - 1; index > 0; index--) {
-        const randomIndex = Math.floor(Math.random() * (index + 1));
-        [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
-      }
-      return items;
-    }
+  function sortGallery(items) {
     return items.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
-  }
-
-  function filterByTags(items) {
-    if (!state.galleryView.activeFilters.size) return items;
-    return items.filter((item) => {
-      const prompt = String(item.prompt || '').toLowerCase();
-      return Array.from(state.galleryView.activeFilters).every((tag) => tagMatchesPrompt(tag, prompt));
-    });
-  }
-
-  function filterByFavoriteStatus(items) {
-    if (!state.galleryView.showFavoritesOnly) return items;
-    return items.filter(isFavoriteGalleryRecord);
   }
 
   function tagMatchesPrompt(tag, prompt) {
@@ -2269,46 +2126,9 @@
     return rules[tag]?.test(prompt) || false;
   }
 
-  function buildGalleryGroups(items) {
-    const groups = new Map();
-    items.forEach((item) => {
-      const keys = [];
-      if (state.galleryView.groupByMode) keys.push(item.mode === 2 ? '图生图' : '文生图');
-      if (state.galleryView.groupByContent) keys.push(detectCategory(item.prompt));
-      const key = keys.join(' / ') || '全部';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(item);
-    });
-    return groups;
-  }
-
-  function renderGroupedGallery(groups, previewItems = []) {
-    const navigationItems = previewItems.length ? previewItems : Array.from(groups.values()).flat();
-    groups.forEach((items, groupName) => {
-      const block = document.createElement('section');
-      block.className = 'group-block';
-      const header = document.createElement('div');
-      header.className = 'group-header';
-      header.append(
-        createTextElement('strong', '', groupName),
-        createTextElement('span', '', `${items.length} 张`),
-      );
-      const grid = document.createElement('div');
-      grid.className = 'group-grid';
-      items.forEach((item) => grid.appendChild(createGalleryCard(item, navigationItems)));
-      header.addEventListener('click', () => {
-        grid.hidden = !grid.hidden;
-      });
-      block.append(header, grid);
-      dom.galleryGrid.appendChild(block);
-    });
-  }
-
   function createGalleryCard(record, previewItems = state.gallery) {
     const card = document.createElement('article');
     card.className = `gallery-item ${state.galleryView.displayMode === 'card' ? 'card-mode' : 'normal-mode'}`;
-    card.classList.toggle('selected-for-compare', state.galleryView.compareSelectedIds.has(record.id));
-    card.classList.toggle('best-pick', isBestGalleryRecord(record));
 
     const thumb = document.createElement('div');
     thumb.className = 'thumb-wrap';
@@ -2329,25 +2149,7 @@
       thumb.appendChild(image);
     }
 
-    if (isBestGalleryRecord(record)) {
-      thumb.appendChild(createTextElement('span', 'best-badge', '最佳'));
-    }
-
-    const compareBtn = createTextElement('button', 'compare-select-btn', state.galleryView.compareSelectedIds.has(record.id) ? '已选' : '对比');
-    compareBtn.type = 'button';
-    compareBtn.hidden = !state.galleryView.compareMode;
-    compareBtn.setAttribute('aria-pressed', String(state.galleryView.compareSelectedIds.has(record.id)));
-    compareBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleCompareSelection(record.id);
-    });
-    thumb.appendChild(compareBtn);
-
     thumb.addEventListener('click', () => {
-      if (state.galleryView.compareMode) {
-        toggleCompareSelection(record.id);
-        return;
-      }
       const imageIndex = previewItems.findIndex((item) => item.id === record.id);
       openPreviewList(previewItems, imageIndex >= 0 ? imageIndex : 0);
     });
@@ -2398,8 +2200,6 @@
       info.appendChild(styleRow);
     }
 
-    info.appendChild(createRatingControl(record));
-
     const promptId = `gallery-prompt-${record.id}`;
     const toggleBtn = createTextElement('button', 'prompt-toggle-btn', '查看提示词');
     toggleBtn.type = 'button';
@@ -2408,13 +2208,6 @@
 
     const actions = document.createElement('div');
     actions.className = 'gallery-actions';
-    const bestBtn = createTextElement('button', 'best-btn', isBestGalleryRecord(record) ? '已是最佳' : '设为最佳');
-    bestBtn.type = 'button';
-    bestBtn.disabled = isBestGalleryRecord(record);
-    bestBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      markBestRecord(record.id);
-    });
     const backgroundBtn = createTextElement('button', 'set-bg-btn', '设为背景');
     backgroundBtn.type = 'button';
     backgroundBtn.addEventListener('click', (event) => {
@@ -2433,7 +2226,7 @@
       event.stopPropagation();
       deleteFromGallery(record.id);
     });
-    actions.append(toggleBtn, bestBtn, backgroundBtn, variantBtn, delBtn);
+    actions.append(toggleBtn, backgroundBtn, variantBtn, delBtn);
 
     const promptPanel = document.createElement('div');
     promptPanel.id = promptId;
@@ -2465,48 +2258,6 @@
     info.append(actions, promptPanel);
     card.appendChild(info);
     return card;
-  }
-
-  function createRatingControl(record) {
-    const wrap = document.createElement('div');
-    wrap.className = 'rating-control';
-    wrap.appendChild(createTextElement('span', 'rating-label', '评分'));
-
-    const stars = document.createElement('div');
-    stars.className = 'rating-stars';
-    const currentRating = normalizeRating(record.rating);
-    for (let value = 1; value <= 5; value += 1) {
-      const button = createTextElement('button', 'star-btn', '★');
-      button.type = 'button';
-      button.classList.toggle('active', value <= currentRating);
-      button.setAttribute('aria-label', `${value} 星`);
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        setGalleryRating(record.id, currentRating === value ? 0 : value);
-      });
-      stars.appendChild(button);
-    }
-    wrap.appendChild(stars);
-    return wrap;
-  }
-
-  async function setGalleryRating(id, rating) {
-    const record = state.gallery.find((item) => item.id === id);
-    if (!record) return;
-    record.rating = normalizeRating(rating);
-    record.ratedAt = record.rating ? new Date().toISOString() : null;
-    try {
-      await saveRecord(record);
-      showStatus('done', record.rating ? `已评分 ${record.rating} 星` : '已清除评分');
-      renderGalleryIfVisible();
-      if (!dom.compareTray?.hidden) openCompareTray();
-    } catch (error) {
-      showStatus('err', `评分保存失败：${error.message}`);
-    }
-  }
-
-  function isFavoriteGalleryRecord(record) {
-    return isBestGalleryRecord(record) || normalizeRating(record.rating) >= 4;
   }
 
   async function setRecordAsBackground(id) {
@@ -2596,177 +2347,6 @@
     });
   }
 
-  function toggleCompareMode() {
-    state.galleryView.compareMode = !state.galleryView.compareMode;
-    if (!state.galleryView.compareMode) {
-      hideCompareTray();
-    }
-    updateCompareControls();
-    renderGalleryIfVisible();
-  }
-
-  function toggleCompareSelection(id) {
-    const selected = state.galleryView.compareSelectedIds;
-    if (selected.has(id)) {
-      selected.delete(id);
-      hideCompareTray();
-      updateCompareControls();
-      renderGalleryIfVisible();
-      return;
-    }
-    if (selected.size >= 6) {
-      showStatus('info', '最多选择 6 张进行对比');
-      return;
-    }
-    selected.add(id);
-    hideCompareTray();
-    updateCompareControls();
-    renderGalleryIfVisible();
-  }
-
-  function clearCompareSelection() {
-    state.galleryView.compareSelectedIds.clear();
-    hideCompareTray();
-    updateCompareControls();
-    renderGalleryIfVisible();
-  }
-
-  function resetCompareState() {
-    state.galleryView.compareMode = false;
-    state.galleryView.compareSelectedIds.clear();
-    state.galleryView.compareBestId = state.gallery.find((record) => record.favoriteRank === 'best')?.id || null;
-    hideCompareTray();
-    updateCompareControls();
-  }
-
-  function updateCompareControls() {
-    const selectedCount = state.galleryView.compareSelectedIds.size;
-    const canCompare = selectedCount >= 2 && selectedCount <= 6;
-    const label = state.galleryView.compareMode ? '关闭对比模式' : '开启对比模式';
-    if (dom.compareModeBtn) {
-      dom.compareModeBtn.textContent = label;
-      dom.compareModeBtn.classList.toggle('active', state.galleryView.compareMode);
-      dom.compareModeBtn.setAttribute('aria-pressed', String(state.galleryView.compareMode));
-    }
-    if (dom.compareSelectionCount) dom.compareSelectionCount.textContent = `已选 ${selectedCount} / 6`;
-    if (dom.openCompareBtn) dom.openCompareBtn.disabled = !canCompare;
-    if (dom.clearCompareBtn) dom.clearCompareBtn.disabled = selectedCount === 0;
-    if (dom.compareToolbar) dom.compareToolbar.hidden = !state.galleryView.compareMode;
-    if (dom.compareToolbarCount) {
-      dom.compareToolbarCount.textContent = selectedCount
-        ? `已选 ${selectedCount} 张，选择 2-6 张可对比`
-        : '选择 2-6 张进行横向对比';
-    }
-    if (dom.compareToolbarOpenBtn) dom.compareToolbarOpenBtn.disabled = !canCompare;
-    if (dom.compareToolbarClearBtn) dom.compareToolbarClearBtn.disabled = selectedCount === 0;
-  }
-
-  function openCompareTray() {
-    const selectedRecords = getCompareSelectedRecords();
-    if (selectedRecords.length < 2) {
-      showStatus('info', '请至少选择 2 张图片进行对比');
-      return;
-    }
-    if (!dom.compareTray) return;
-    dom.compareTray.innerHTML = '';
-    dom.compareTray.hidden = false;
-
-    const header = document.createElement('div');
-    header.className = 'compare-tray-header';
-    header.append(
-      createTextElement('strong', '', `横向对比 ${selectedRecords.length} 张`),
-      createTextElement('span', '', '点击图片可单张预览，选出最佳会保存在图库记录里'),
-    );
-    const closeBtn = createTextElement('button', 'compare-close-btn', '收起');
-    closeBtn.type = 'button';
-    closeBtn.addEventListener('click', hideCompareTray);
-    header.appendChild(closeBtn);
-
-    const strip = document.createElement('div');
-    strip.className = 'compare-strip';
-    selectedRecords.forEach((record, index) => strip.appendChild(createCompareCard(record, selectedRecords, index)));
-    dom.compareTray.append(header, strip);
-    dom.compareTray.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function createCompareCard(record, selectedRecords, index) {
-    const item = document.createElement('article');
-    item.className = 'compare-item';
-    item.classList.toggle('best-pick', isBestGalleryRecord(record));
-
-    const image = createGalleryImage(record);
-    image.classList.add('compare-image');
-    image.addEventListener('click', () => openPreviewList(selectedRecords, index));
-
-    const meta = document.createElement('div');
-    meta.className = 'compare-meta';
-    const title = createTextElement('strong', '', isBestGalleryRecord(record) ? '当前最佳' : `候选 ${index + 1}`);
-    const time = createTextElement('span', '', formatGalleryTime(record));
-    const styleLine = createTextElement('span', 'compare-style-line', record.styleChipLabels?.length ? record.styleChipLabels.join(' / ') : '随机风格');
-    const prompt = createTextElement('p', 'compare-prompt-text', record.prompt || '这条记录没有保存提示词。');
-    const rating = createRatingControl(record);
-    const actions = document.createElement('div');
-    actions.className = 'compare-actions';
-    const bestBtn = createTextElement('button', 'best-btn', isBestGalleryRecord(record) ? '已是最佳' : '设为最佳');
-    bestBtn.type = 'button';
-    bestBtn.disabled = isBestGalleryRecord(record);
-    bestBtn.addEventListener('click', () => markBestRecord(record.id));
-    const backgroundBtn = createTextElement('button', 'set-bg-btn', '设背景');
-    backgroundBtn.type = 'button';
-    backgroundBtn.addEventListener('click', () => setRecordAsBackground(record.id));
-    const variantBtn = createTextElement('button', 'variant-btn', '再生');
-    variantBtn.type = 'button';
-    variantBtn.addEventListener('click', () => regenerateVariant(record.id));
-    const removeBtn = createTextElement('button', 'compare-remove-btn', '移出');
-    removeBtn.type = 'button';
-    removeBtn.addEventListener('click', () => toggleCompareSelection(record.id));
-    actions.append(bestBtn, backgroundBtn, variantBtn, removeBtn);
-    meta.append(title, time, styleLine, rating, prompt, actions);
-    item.append(image, meta);
-    return item;
-  }
-
-  function hideCompareTray() {
-    if (!dom.compareTray) return;
-    dom.compareTray.hidden = true;
-    dom.compareTray.innerHTML = '';
-  }
-
-  function getCompareSelectedRecords() {
-    return state.gallery.filter((record) => state.galleryView.compareSelectedIds.has(record.id)).slice(0, 6);
-  }
-
-  function isBestGalleryRecord(record) {
-    return record.favoriteRank === 'best' || state.galleryView.compareBestId === record.id;
-  }
-
-  async function markBestRecord(id) {
-    const target = state.gallery.find((record) => record.id === id);
-    if (!target) return;
-    try {
-      const updates = state.gallery
-        .filter((record) => record.favoriteRank === 'best' || record.id === id)
-        .map((record) => {
-          if (record.id === id) {
-            record.favoriteRank = 'best';
-            record.favoritedAt = new Date().toISOString();
-            record.rating = Math.max(normalizeRating(record.rating), 5);
-          } else {
-            delete record.favoriteRank;
-            delete record.favoritedAt;
-          }
-          return saveRecord(record);
-        });
-      await Promise.all(updates);
-      state.galleryView.compareBestId = id;
-      showStatus('done', '已标记为最佳图片');
-      renderGalleryIfVisible();
-      if (!dom.compareTray?.hidden) openCompareTray();
-    } catch (error) {
-      showStatus('err', `标记最佳失败：${error.message}`);
-    }
-  }
-
   function createGalleryImage(record) {
     const image = document.createElement('img');
     image.src = record.dataUrl;
@@ -2805,17 +2385,6 @@
       createTextElement('span', '', message),
     );
     return notice;
-  }
-
-  function detectCategory(prompt) {
-    const text = String(prompt || '').toLowerCase();
-    if (tagMatchesPrompt('woman', text)) return '女性人物';
-    if (tagMatchesPrompt('man', text)) return '男性人物';
-    if (tagMatchesPrompt('anime', text)) return '动漫风格';
-    if (tagMatchesPrompt('realistic', text)) return '写实风格';
-    if (tagMatchesPrompt('landscape', text)) return '风景场景';
-    if (/city|urban|building|street|城市|建筑/.test(text)) return '城市场景';
-    return '其他';
   }
 
   function generatePromptTags(prompt) {
@@ -3912,8 +3481,6 @@
       promptRecipes: state.promptRecipes,
       selectedStyleChipIds: [...state.selectedStyleChipIds],
       imageParams: state.imageParams,
-      galleryLayout: state.galleryView.layout,
-      galleryFavoritesOnly: state.galleryView.showFavoritesOnly,
       backgroundImage: state.backgroundImage,
       autoDownload: state.autoDownload,
     };
@@ -3956,21 +3523,18 @@
         : [];
       state.selectedStyleChipIds = new Set(normalizeStyleChipIds(data.selectedStyleChipIds));
       state.imageParams = { ...state.imageParams, ...(data.imageParams || {}) };
-      state.galleryView.layout = data.galleryLayout === 'masonry' ? 'masonry' : 'grid';
-      state.galleryView.showFavoritesOnly = Boolean(data.galleryFavoritesOnly);
       state.backgroundImage = typeof data.backgroundImage === 'string' ? data.backgroundImage : '';
       state.autoDownload = Boolean(data.autoDownload);
 
       await replaceGalleryRecords(state.gallery);
-      resetCompareState();
       saveApiConfigs();
       savePromptHistory();
       savePromptRecipes();
       saveStyleChipSelection();
       saveImageParams();
       try {
-        localStorage.setItem(STORAGE_KEYS.galleryLayout, state.galleryView.layout);
-        localStorage.setItem(STORAGE_KEYS.galleryFavoritesOnly, String(state.galleryView.showFavoritesOnly));
+        localStorage.removeItem(STORAGE_KEYS.galleryLayout);
+        localStorage.removeItem(STORAGE_KEYS.galleryFavoritesOnly);
       } catch {}
       saveBackgroundImage();
       saveAutoDownloadSetting();
@@ -4011,8 +3575,6 @@
             mode: item.mode,
             time: item.time,
             params: item.params,
-            rating: item.rating,
-            favoriteRank: item.favoriteRank,
             styleChipIds: item.styleChipIds,
             styleChipLabels: item.styleChipLabels,
           }, null, 2)),
@@ -4149,7 +3711,6 @@
 
     try {
       state.gallery = [];
-      resetCompareState();
       await replaceGalleryRecords([]);
       Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
       state.apiConfigs = structuredCloneSafe(DEFAULT_CONFIGS);
@@ -4161,8 +3722,6 @@
       state.backgroundImage = '';
       state.autoDownload = false;
       state.imageParams = { size: '1024x1024', quality: 'standard', style: 'natural' };
-      state.galleryView.layout = 'grid';
-      state.galleryView.showFavoritesOnly = false;
       saveApiConfigs();
       savePromptHistory();
       savePromptRecipes();
@@ -4195,7 +3754,6 @@
     try {
       state.gallery = [];
       state.currentResults = [];
-      resetCompareState();
       await replaceGalleryRecords([]);
       if (dom.resultGrid) dom.resultGrid.innerHTML = '';
       dom.resultArea?.classList.remove('active');
